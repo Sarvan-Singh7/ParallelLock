@@ -1,0 +1,129 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+  padding: 16px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background-color: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 24px 24px 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  position: relative;
+  text-align: center;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: #8b8f9d;
+  font-size: 1.125rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.closeBtn:hover {
+  color: #1d1f2b;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #232759;
+  margin-bottom: 6px;
+}
+
+.showDetails {
+  background-color: #f7f7fb;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 14px 0 20px 0;
+  font-size: 0.8125rem;
+}
+
+.theaterLine {
+  font-weight: 600;
+  color: #1d1f2b;
+}
+
+.timeLine {
+  color: #5b5f6b;
+  margin-top: 2px;
+}
+
+.countGrid {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.countBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1.5px solid #e2e4ed;
+  background-color: #ffffff;
+  color: #1d1f2b;
+  font-size: 1.125rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.countBtn:hover {
+  border-color: #ff5a5f;
+  color: #ff5a5f;
+}
+
+.countBtnActive {
+  background-color: #ff5a5f;
+  border-color: #ff5a5f;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(255, 90, 95, 0.3);
+}
+
+.hint {
+  font-size: 0.8125rem;
+  color: #5b5f6b;
+  margin-bottom: 20px;
+}
+
+.proceedBtn {
+  width: 100%;
+  background-color: #ff5a5f;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.proceedBtn:hover {
+  background-color: #e0484d;
+}

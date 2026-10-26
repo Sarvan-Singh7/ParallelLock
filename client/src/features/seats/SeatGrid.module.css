@@ -1,0 +1,114 @@
+.gridContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* Screen Area matching Figma Page 5 */
+.screenArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 580px;
+  margin-bottom: 36px;
+}
+
+.screenCurve {
+  width: 100%;
+  height: 12px;
+  border-top: 3.5px solid #ff5a5f;
+  border-radius: 50% / 12px;
+  filter: drop-shadow(0 4px 6px rgba(255, 90, 95, 0.25));
+}
+
+.screenText {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #8b8f9d;
+  margin-top: 8px;
+}
+
+.tiersWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  width: 100%;
+  align-items: center;
+}
+
+.tierSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.tierHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.tierName {
+  color: #232759;
+  letter-spacing: 0.5px;
+}
+
+.tierDot {
+  color: #c7cbd9;
+}
+
+.tierPrice {
+  color: #ff5a5f;
+}
+
+.rowsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seatRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rowLabel {
+  width: 20px;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #8b8f9d;
+}
+
+.seatsBlock {
+  display: flex;
+  align-items: center;
+  gap: 24px; /* Aisle spacing */
+}
+
+.aisleGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .seatsBlock {
+    gap: 12px;
+  }
+  .aisleGroup {
+    gap: 4px;
+  }
+  .seatRow {
+    gap: 8px;
+  }
+}

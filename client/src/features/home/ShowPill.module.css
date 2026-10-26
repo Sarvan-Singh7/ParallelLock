@@ -1,0 +1,76 @@
+.pill {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-align: left;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  min-width: 120px;
+}
+
+.pill:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--color-indigo);
+  box-shadow: var(--shadow-sm);
+}
+
+.topRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.time {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.format {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  background: var(--color-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.bottomRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Status variants */
+.plenty .icon,
+.plenty .statusText {
+  color: var(--color-green);
+}
+
+.fillingFast .icon,
+.fillingFast .statusText {
+  color: var(--color-amber-text);
+}
+
+.almostFull .icon,
+.almostFull .statusText {
+  color: #d97706; /* deep amber */
+}
+
+.soldOut {
+  opacity: 0.5;
+  background-color: #f1f2f6;
+  border-color: #e2e4ed;
+  cursor: not-allowed;
+}
+
+.soldOut .icon,
+.soldOut .statusText {
+  color: var(--color-muted);
+}

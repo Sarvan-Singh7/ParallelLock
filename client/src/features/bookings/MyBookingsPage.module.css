@@ -1,0 +1,320 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: #ff5a5f;
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #232759;
+  letter-spacing: -0.5px;
+  margin: 4px 0 6px 0;
+}
+
+.subtitle {
+  font-size: 0.9375rem;
+  color: #5b5f6b;
+}
+
+/* Tab Bar */
+.tabBar {
+  display: flex;
+  gap: 12px;
+  border-bottom: 1.5px solid #e2e4ed;
+  margin-bottom: 24px;
+}
+
+.tabBtn {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #5b5f6b;
+  padding: 10px 16px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.tabBtn:hover {
+  color: #232759;
+}
+
+.tabActive {
+  color: #232759;
+  font-weight: 700;
+  border-bottom-color: #232759;
+}
+
+/* Confirmed Tickets List matching Figma Page 8 */
+.ticketsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.bookingCard {
+  background-color: #ffffff;
+  border: 1px solid #e2e4ed;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.bookingCard:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f7f8fc;
+  padding: 12px 20px;
+  border-bottom: 1px solid #e2e4ed;
+}
+
+.refCode {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #5b5f6b;
+}
+
+.confirmedBadge {
+  background-color: #e8f7ee;
+  color: #1fa35a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.cardBody {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.movieSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.movieTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #232759;
+}
+
+.movieMeta {
+  font-size: 0.8125rem;
+  color: #5b5f6b;
+}
+
+.timeSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background-color: #fafafc;
+  padding: 10px 14px;
+  border-radius: 6px;
+}
+
+.dateTime {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1d1f2b;
+}
+
+.venue {
+  font-size: 0.8125rem;
+  color: #5b5f6b;
+}
+
+.footerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid #f1f3f9;
+}
+
+.seatsInfo {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #232759;
+}
+
+.viewTicketBtn {
+  color: #ff5a5f;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: transform 0.15s;
+}
+
+.viewTicketBtn:hover {
+  text-decoration: underline;
+  transform: translateX(2px);
+}
+
+/* Earlier Attempts Section */
+.attemptsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 24px;
+  border-top: 1.5px solid #e2e4ed;
+}
+
+.attemptsHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attemptsTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #232759;
+}
+
+.attemptsDesc {
+  font-size: 0.8125rem;
+  color: #8b8f9d;
+}
+
+.attemptsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attemptCard {
+  background-color: #fafafc;
+  border: 1px solid #e2e4ed;
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attemptTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.attemptFilm {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #5b5f6b;
+}
+
+.badgeGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notPaidBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #8b8f9d;
+  background-color: #e2e4ed;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.expiredBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #b45309;
+  background-color: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.releasedBadge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #8b8f9d;
+  background-color: #f1f3f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.attemptSub {
+  font-size: 0.8125rem;
+  color: #8b8f9d;
+}
+
+.attemptExplanation {
+  font-size: 0.75rem;
+  color: #5b5f6b;
+  margin-top: 2px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  border: 1px dashed #e2e4ed;
+  color: #5b5f6b;
+}
+
+.browseBtn {
+  display: inline-block;
+  margin-top: 12px;
+  color: #ff5a5f;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.browseBtn:hover {
+  text-decoration: underline;
+}
+
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 80px 24px;
+  color: #5b5f6b;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3.5px solid #e2e4ed;
+  border-top-color: #232759;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

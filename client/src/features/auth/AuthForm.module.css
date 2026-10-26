@@ -1,0 +1,244 @@
+/* AuthForm.module.css – Split layout matching Figma Pages 9 and 10 */
+.splitWrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 960px;
+  margin: 40px auto;
+  background-color: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e4ed;
+  min-height: 560px;
+}
+
+/* Left Column: Visual Storytelling */
+.artColumn {
+  position: relative;
+  background-image: url('/posters/auth_art.jpg');
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.artOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(23, 26, 61, 0.3) 0%, rgba(23, 26, 61, 0.92) 80%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 40px 36px;
+}
+
+.artContent {
+  color: #ffffff;
+}
+
+.artBadge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #ff5a5f;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+
+.artTitle {
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.artTagline {
+  font-size: 0.9375rem;
+  color: #c7cbd9;
+  line-height: 1.4;
+}
+
+/* Right Column: Form */
+.formColumn {
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cardHeader {
+  margin-bottom: 24px;
+}
+
+.formTitle {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #232759;
+  letter-spacing: -0.5px;
+}
+
+.formSubtitle {
+  font-size: 0.875rem;
+  color: #5b5f6b;
+  margin-top: 4px;
+}
+
+/* Alert Error Box matching Figma */
+.alertBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: #fdecec;
+  border: 1px solid #f8c9c6;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  color: #b3261c;
+  font-size: 0.8125rem;
+}
+
+.alertIcon {
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.alertText strong {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #232759;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d8dae5;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #1d1f2b;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #232759;
+  box-shadow: 0 0 0 3px rgba(35, 39, 89, 0.12);
+}
+
+.togglePassBtn {
+  position: absolute;
+  right: 12px;
+  color: #5b5f6b;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.togglePassBtn:hover {
+  color: #1d1f2b;
+}
+
+.fieldSuccess {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1fa35a;
+  margin-top: 2px;
+}
+
+.fieldError {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b3261c;
+  margin-top: 2px;
+}
+
+.submitBtn {
+  background-color: #232759;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background-color: #181b40;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.footerGroup {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: center;
+}
+
+.switchAuthText {
+  font-size: 0.875rem;
+  color: #5b5f6b;
+}
+
+.authLink {
+  color: #ff5a5f;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.authLink:hover {
+  text-decoration: underline;
+}
+
+.disclaimerText {
+  font-size: 0.75rem;
+  color: #8b8f9d;
+}
+
+@media (max-width: 768px) {
+  .splitWrapper {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+    margin: 20px auto;
+  }
+  .artColumn {
+    display: none;
+  }
+  .formColumn {
+    padding: 32px 24px;
+  }
+}

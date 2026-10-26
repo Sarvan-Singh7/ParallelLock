@@ -1,0 +1,482 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+/* Hero Banner matching Figma Page 1 */
+.heroBanner {
+  background: linear-gradient(135deg, #171a3d 0%, #232759 60%, #303575 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 40px 48px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  color: #ffffff;
+  position: relative;
+}
+
+.heroContent {
+  max-width: 540px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 2;
+}
+
+.heroEyebrow {
+  color: #ff5a5f;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.5px;
+}
+
+.heroTagline {
+  font-size: 1.0625rem;
+  color: #c7cbd9;
+  font-weight: 400;
+}
+
+.heroMeta {
+  font-size: 0.875rem;
+  color: #9da3ba;
+  font-weight: 500;
+}
+
+.heroBtn {
+  margin-top: 10px;
+  align-self: flex-start;
+  background-color: #ff5a5f;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  padding: 10px 22px;
+  border-radius: 20px;
+  transition: background-color 0.2s, transform 0.15s;
+}
+
+.heroBtn:hover {
+  background-color: #e0484d;
+  transform: translateX(2px);
+}
+
+.heroPosterWrap {
+  width: 190px;
+  height: 250px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.heroPoster {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 768px) {
+  .heroBanner {
+    flex-direction: column;
+    padding: 24px;
+    gap: 20px;
+  }
+  .heroPosterWrap {
+    display: none;
+  }
+}
+
+/* Now Showing Section */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 1.5px solid #e2e4ed;
+  padding-bottom: 14px;
+}
+
+.sectionTitle {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #232759;
+  letter-spacing: -0.5px;
+}
+
+.sectionSubtitle {
+  font-size: 0.9375rem;
+  color: #5b5f6b;
+  margin-top: 4px;
+}
+
+.movieCounter {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #8b8f9d;
+}
+
+/* Filter Chips Bar */
+.filterBar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #ffffff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border: 1px solid #e2e4ed;
+}
+
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filterLabel {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #232759;
+  min-width: 70px;
+}
+
+.chipGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  background-color: #f1f3f9;
+  border: 1px solid transparent;
+  color: #5b5f6b;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 16px;
+  transition: all 0.15s ease;
+}
+
+.chip:hover {
+  background-color: #e5e8f2;
+  color: #1d1f2b;
+}
+
+.chipActive {
+  background-color: #232759;
+  color: #ffffff;
+}
+
+.chipActive:hover {
+  background-color: #1a1e48;
+  color: #ffffff;
+}
+
+.moviesGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 1024px) {
+  .moviesGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .moviesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.emptyResults {
+  text-align: center;
+  padding: 48px;
+  background-color: #ffffff;
+  border: 1px dashed #e2e4ed;
+  border-radius: 8px;
+  color: #5b5f6b;
+}
+
+.resetBtn {
+  margin-top: 12px;
+  background-color: #232759;
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+
+/* Stepper bar matching Figma Page 3 & 4 */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px;
+  background-color: #f7f8fc;
+  border-radius: 8px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8b8f9d;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.stepActive {
+  color: #232759;
+  font-weight: 700;
+}
+
+.stepNum {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #e2e4ed;
+  color: #5b5f6b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+}
+
+.stepActive .stepNum {
+  background-color: #232759;
+  color: #ffffff;
+}
+
+.stepDivider {
+  width: 32px;
+  height: 2px;
+  background-color: #e2e4ed;
+}
+
+/* Shows Section */
+.showsSection {
+  background-color: #ffffff;
+  border: 1px solid #e2e4ed;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.showsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.showsEyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: #ff5a5f;
+  text-transform: uppercase;
+}
+
+.selectedTitle {
+  font-size: 1.625rem;
+  font-weight: 800;
+  color: #232759;
+  margin-top: 4px;
+}
+
+.movieMeta {
+  font-size: 0.875rem;
+  color: #5b5f6b;
+  margin-top: 4px;
+}
+
+/* Date Selector Row matching Figma Page 3 & 4 */
+.dateSelectorRow {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f1f3f9;
+}
+
+.datePill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  min-width: 68px;
+  border-radius: 8px;
+  border: 1.5px solid #e2e4ed;
+  background-color: #ffffff;
+  color: #5b5f6b;
+  transition: all 0.15s ease;
+}
+
+.datePill:hover {
+  border-color: #232759;
+  color: #232759;
+}
+
+.datePillActive {
+  background-color: #232759;
+  border-color: #232759;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(35, 39, 89, 0.25);
+}
+
+.pillDayName {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.pillDayNum {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.pillMonth {
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Availability Legend matching Figma */
+.legendBar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: #5b5f6b;
+  margin-bottom: 24px;
+  padding: 8px 14px;
+  background-color: #f7f8fc;
+  border-radius: 6px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDot {
+  font-weight: 800;
+}
+
+.dotPlenty {
+  color: #1fa35a;
+}
+
+.dotFilling {
+  color: #d97706;
+}
+
+.dotAlmost {
+  color: #b45309;
+}
+
+.dotSold {
+  color: #8b8f9d;
+}
+
+/* Theaters List & Show Pills */
+.theatersList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.theaterCard {
+  border: 1px solid #e2e4ed;
+  border-radius: 8px;
+  padding: 20px;
+  background-color: #ffffff;
+}
+
+.theaterHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.theaterName {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #1d1f2b;
+}
+
+.theaterAddress {
+  font-size: 0.8125rem;
+  color: #5b5f6b;
+  margin-top: 2px;
+}
+
+.venueInfoLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #ff5a5f;
+  cursor: pointer;
+}
+
+.pillsGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.emptyShows {
+  text-align: center;
+  padding: 36px;
+  color: #8b8f9d;
+  font-size: 0.9375rem;
+}
+
+.loadingWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px;
+  color: #5b5f6b;
+  font-size: 0.9375rem;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e2e4ed;
+  border-top-color: #232759;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
