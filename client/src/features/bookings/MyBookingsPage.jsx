@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../lib/apiClient';
+import { adaptBooking } from '../../lib/adapters';
 import { formatShowDate, formatShowTime } from '../../lib/format';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import styles from './MyBookingsPage.module.css';
@@ -20,7 +21,8 @@ export function MyBookingsPage() {
       setError(null);
       try {
         const data = await api.get('/me/bookings');
-        setBookings(data.bookings || []);
+        const adapted = (data.bookings || []).map((b) => adaptBooking(b));
+        setBookings(adapted);
       } catch (err) {
         setError(err.message || 'Could not load your bookings.');
       } finally {
@@ -31,12 +33,21 @@ export function MyBookingsPage() {
     fetchBookings();
   }, []);
 
+  const now = new Date();
+  const activeHolds = bookings.filter(
+    (b) => b.displayStatus === 'ACTIVE_HOLD' && b.holdExpiresAt && new Date(b.holdExpiresAt) > now
+  );
   const confirmedBookings = bookings.filter((b) => b.status === 'CONFIRMED');
-  const pastOrAttemptBookings = bookings.filter((b) => b.status !== 'CONFIRMED');
+  const pastOrAttemptBookings = bookings.filter(
+    (b) =>
+      b.status === 'EXPIRED' ||
+      b.status === 'CANCELLED' ||
+      (b.status === 'CREATED' && (!b.holdExpiresAt || new Date(b.holdExpiresAt) <= now))
+  );
 
   const displayedConfirmed =
     activeTab === 'UPCOMING'
-      ? confirmedBookings.filter((b) => new Date(b.startsAt) >= new Date())
+      ? confirmedBookings.filter((b) => new Date(b.startsAt) >= now)
       : confirmedBookings;
 
   return (
@@ -77,12 +88,52 @@ export function MyBookingsPage() {
         </div>
       )}
 
+      {/* Active Holds Section */}
+      {!loading && activeHolds.length > 0 && (
+        <section style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <span style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--color-primary, #4338ca)' }}>
+              Active Holds ({activeHolds.length})
+            </span>
+            <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+              Seats held temporarily — complete payment before expiry
+            </span>
+          </div>
+          <div className={styles.ticketsList}>
+            {activeHolds.map((b) => (
+              <div key={b.id} className={styles.bookingCard} style={{ borderLeft: '4px solid #f59e0b' }}>
+                <div className={styles.cardHeader}>
+                  <span className={styles.refCode}>{b.ref} · Hold</span>
+                  <span style={{ color: '#d97706', fontWeight: 600, fontSize: '0.875rem' }}>⏱ In progress</span>
+                </div>
+                <div className={styles.cardBody}>
+                  <div className={styles.movieSection}>
+                    <h2 className={styles.movieTitle}>{b.movieTitle}</h2>
+                    <p className={styles.movieMeta}>
+                      {b.movieLanguages?.join(', ') || 'Hindi'} · {b.format} · {b.theaterName} (Screen {b.screenNumber})
+                    </p>
+                  </div>
+                  <div className={styles.footerRow}>
+                    <span className={styles.seatsInfo}>
+                      {b.seats?.map((s) => s.label).join(', ')} · ₹{(b.totalPaise / 100).toFixed(2)}
+                    </span>
+                    <Link to={`/checkout/${b.id}`} className={styles.viewTicketBtn}>
+                      Complete checkout →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Confirmed Tickets List */}
       {!loading && displayedConfirmed.length > 0 ? (
         <div className={styles.ticketsList}>
           {displayedConfirmed.map((b) => {
-            const refCode = `PL-26-${String(b.id).padStart(5, '0')}`;
-            const seatNames = b.seats?.map((s) => `${s.row}${s.number}`).join(', ');
+            const refCode = b.ref;
+            const seatNames = b.seats?.map((s) => s.label || `${s.row}${s.number}`).join(', ');
             const tier = b.seats?.[0]?.tier || 'Gold';
 
             return (
@@ -145,7 +196,7 @@ export function MyBookingsPage() {
 
           <div className={styles.attemptsList}>
             {pastOrAttemptBookings.map((b) => {
-              const refCode = `PL-26-${String(b.id).padStart(5, '0')}`;
+              const refCode = b.ref;
               const isExpired = b.status === 'EXPIRED';
 
               return (

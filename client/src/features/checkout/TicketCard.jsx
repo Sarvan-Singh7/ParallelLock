@@ -2,12 +2,15 @@
  * TicketCard.jsx – Confirmed Ticket presentation matching Figma Page 7
  */
 import { Link } from 'react-router-dom';
+import { adaptBooking } from '../../lib/adapters';
 import { formatShowDate, formatShowTime } from '../../lib/format';
 import styles from './TicketCard.module.css';
 
 export function TicketCard({ booking }) {
+  const adapted = adaptBooking(booking);
   const {
     id,
+    ref,
     status,
     totalPaise,
     movieTitle,
@@ -21,10 +24,10 @@ export function TicketCard({ booking }) {
     startsAt,
     format,
     seats = [],
-  } = booking;
+  } = adapted || {};
 
-  const refCode = `PL-26-${String(id).padStart(5, '0')}`;
-  const seatNames = seats.map((s) => `${s.row}${s.number}`).join(', ');
+  const refCode = ref || `PL-26-${String(id).padStart(5, '0')}`;
+  const seatNames = seats.map((s) => s.label || `${s.row}${s.number}`).join(', ');
   const tier = seats[0]?.tier || 'GOLD';
 
   const handlePrint = () => {

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../../lib/apiClient';
+import { adaptBooking } from '../../lib/adapters';
 import { TicketCard } from './TicketCard';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { formatShowDate, formatShowTime } from '../../lib/format';
@@ -25,10 +26,14 @@ export function CheckoutPage() {
     try {
       setLoading(true);
       const data = await api.get(`/bookings/${bookingId}`);
-      setBooking(data.booking);
+      const adapted = adaptBooking(data.booking, data.serverTime);
+      setBooking(adapted);
 
-      if (data.booking?.status === 'HELD' && data.booking?.holdExpiresAt) {
-        const diffMs = new Date(data.booking.holdExpiresAt).getTime() - Date.now();
+      if (adapted?.displayStatus === 'ACTIVE_HOLD' && adapted?.holdExpiresAt) {
+        const serverTimeMs = data.serverTime ? new Date(data.serverTime).getTime() : Date.now();
+        const serverOffset = Date.now() - serverTimeMs;
+        const adjustedNow = Date.now() - serverOffset;
+        const diffMs = new Date(adapted.holdExpiresAt).getTime() - adjustedNow;
         setRemainingSeconds(Math.max(0, Math.floor(diffMs / 1000)));
       }
     } catch (err) {
@@ -44,10 +49,10 @@ export function CheckoutPage() {
 
   // Countdown timer effect
   useEffect(() => {
-    if (remainingSeconds === null || booking?.status !== 'HELD') return;
+    if (remainingSeconds === null || booking?.displayStatus !== 'ACTIVE_HOLD') return;
 
     if (remainingSeconds <= 0) {
-      setBooking((prev) => (prev ? { ...prev, status: 'EXPIRED' } : prev));
+      setBooking((prev) => (prev ? { ...prev, displayStatus: 'EXPIRED', status: 'EXPIRED' } : prev));
       return;
     }
 
@@ -55,7 +60,7 @@ export function CheckoutPage() {
       setRemainingSeconds((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          setBooking((b) => (b ? { ...b, status: 'EXPIRED' } : b));
+          setBooking((b) => (b ? { ...b, displayStatus: 'EXPIRED', status: 'EXPIRED' } : b));
           return 0;
         }
         return prev - 1;
@@ -63,7 +68,7 @@ export function CheckoutPage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [remainingSeconds, booking?.status]);
+  }, [remainingSeconds, booking?.displayStatus]);
 
   // Handle Pay CTA
   const handlePayment = async () => {
@@ -76,7 +81,7 @@ export function CheckoutPage() {
       });
 
       // Update booking with confirmed status and ticket data
-      setBooking(res.booking);
+      setBooking(adaptBooking(res.booking));
     } catch (err) {
       setError(err.message || 'Payment processing failed. Please try again.');
       // Refresh booking in case it expired while paying
@@ -238,7 +243,7 @@ export function CheckoutPage() {
               type="button"
               className={styles.payBtn}
               onClick={handlePayment}
-              disabled={isPaying || remainingSeconds <= 0}
+              disabled={isPaying || remainingSeconds <= 0 || booking?.displayStatus !== 'ACTIVE_HOLD'}
             >
               {isPaying ? 'Confirming booking...' : `Pay ₹${totalInRupees} · Demo`}
             </button>

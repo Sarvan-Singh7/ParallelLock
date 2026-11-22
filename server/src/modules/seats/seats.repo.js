@@ -29,17 +29,18 @@ export const seatsRepo = {
   },
 
   /**
-   * Fetch distinct pricing sections for active seats in the given screen.
+   * Fetch distinct pricing sections for active seats from show_seats for the given show.
    */
-  async findSections(screenId, db = pool) {
+  async findSections(showId, db = pool) {
     const { rows } = await db.query(
       `SELECT DISTINCT
          s.section AS name,
-         CASE WHEN s.section = 'GOLD' THEN 32000 ELSE 22000 END AS price_cents
-       FROM seats s
-       WHERE s.screen_id = $1 AND s.is_active = true
-       ORDER BY price_cents DESC`,
-      [screenId]
+         ss.price_cents
+       FROM show_seats ss
+       JOIN seats s ON s.id = ss.seat_id
+       WHERE ss.show_id = $1
+       ORDER BY ss.price_cents DESC`,
+      [showId]
     );
     return rows;
   },

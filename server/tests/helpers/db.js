@@ -12,7 +12,13 @@ import { env } from '../../src/config/env.js';
 import appPool from '../../src/db/pool.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const testUrl = env.TEST_DATABASE_URL || env.DATABASE_URL;
+if (!env.TEST_DATABASE_URL) {
+  throw new Error(
+    'TEST_DATABASE_URL environment variable is required to run tests. ' +
+    'Refusing to run tests against the main DATABASE_URL to prevent data loss.'
+  );
+}
+const testUrl = env.TEST_DATABASE_URL;
 
 export const testPool = new pg.Pool({ connectionString: testUrl });
 

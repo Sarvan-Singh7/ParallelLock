@@ -4,6 +4,7 @@
 import { useEffect, useReducer, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { api } from '../../lib/apiClient';
+import { adaptSeatMap } from '../../lib/adapters';
 import { useAuth } from '../../context/AuthContext';
 import { usePolling } from '../../hooks/usePolling';
 import { seatReducer, initialState } from './seatReducer';
@@ -60,11 +61,12 @@ export function SeatPage() {
     if (isInitial) setLoading(true);
     try {
       const data = await api.get(`/shows/${showId}/seats`);
-      setSeatsData(data);
+      const adapted = adaptSeatMap(data);
+      setSeatsData(adapted);
 
       // Check if any selected seat became unavailable during background refresh
-      if (data?.seats) {
-        const availableIds = data.seats
+      if (adapted?.seats) {
+        const availableIds = adapted.seats
           .filter((s) => s.status === 'AVAILABLE' || s.status === 'MINE')
           .map((s) => s.id);
         dispatch({ type: 'REMOVE_UNAVAILABLE', payload: availableIds });

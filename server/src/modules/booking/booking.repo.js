@@ -72,13 +72,14 @@ export const bookingRepo = {
 
   /**
    * Insert a new booking record with status 'CREATED'.
+   * Uses the database clock (now() + interval) for reliable hold expiry.
    */
-  async insertBooking({ ref, userId, showId, seatIds, totalCents, holdExpiresAt, idempotencyKey }, client) {
+  async insertBooking({ ref, userId, showId, seatIds, totalCents, holdSeconds, idempotencyKey }, client) {
     const { rows } = await client.query(
       `INSERT INTO bookings (ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, idempotency_key)
-       VALUES ($1, $2, $3, 'CREATED', $4, $5, $6, $7)
+       VALUES ($1, $2, $3, 'CREATED', $4, $5, now() + ($6 || ' seconds')::interval, $7)
        RETURNING id, ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, paid_at, created_at, idempotency_key`,
-      [ref, userId, showId, seatIds, totalCents, holdExpiresAt, idempotencyKey || null]
+      [ref, userId, showId, seatIds, totalCents, String(holdSeconds), idempotencyKey || null]
     );
     return rows[0];
   },
@@ -123,25 +124,25 @@ export const bookingRepo = {
   },
 
   /**
-   * Mark a booking EXPIRED.
+   * Mark a booking EXPIRED (conditional on status='CREATED').
    */
   async markExpired(bookingId, db = pool) {
     await db.query(
       `UPDATE bookings
        SET status = 'EXPIRED'
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'CREATED'`,
       [bookingId]
     );
   },
 
   /**
-   * Mark a booking CANCELLED.
+   * Mark a booking CANCELLED (conditional on status='CREATED').
    */
   async markCancelled(bookingId, client) {
     await client.query(
       `UPDATE bookings
        SET status = 'CANCELLED'
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'CREATED'`,
       [bookingId]
     );
   },

@@ -139,47 +139,34 @@ export const bookingService = {
         throw errors.seatUnavailable(unavailableSeatIds);
       }
 
-      // 9. Calculate total and insert booking
+      // 9. Calculate total and insert booking using DB clock for hold_expires_at
       const totalCents = lockedSeats.reduce((sum, s) => sum + Number(s.price_cents), 0);
-      const holdExpiresAt = new Date(Date.now() + env.HOLD_SECONDS * 1000);
+      const ref = generateBookingRef();
 
       let booking;
-      let inserted = false;
-      let attempts = 0;
-
-      while (!inserted && attempts < 3) {
-        attempts++;
-        const ref = generateBookingRef();
-        try {
-          booking = await bookingRepo.insertBooking(
-            {
-              ref,
-              userId,
-              showId,
-              seatIds,
-              totalCents,
-              holdExpiresAt: holdExpiresAt.toISOString(),
-              idempotencyKey: idempotencyKey || null,
-            },
-            client
-          );
-          inserted = true;
-        } catch (err) {
-          // Unique index violation on (user_id, show_id) WHERE status='CREATED'
-          if (err.code === '23505' && err.constraint === 'uq_bookings_active_user_show') {
-            const currentHold = await bookingRepo.findActiveUserHold(showId, userId, client);
-            throw errors.activeHoldExists(currentHold ? String(currentHold.id) : null);
-          }
-          // Retry on unique ref collision
-          if (err.code === '23505' && err.constraint === 'bookings_ref_key') {
-            continue;
-          }
-          throw err;
+      try {
+        booking = await bookingRepo.insertBooking(
+          {
+            ref,
+            userId,
+            showId,
+            seatIds,
+            totalCents,
+            holdSeconds: env.HOLD_SECONDS,
+            idempotencyKey: idempotencyKey || null,
+          },
+          client
+        );
+      } catch (err) {
+        // Unique index violation on (user_id, show_id) WHERE status='CREATED'
+        if (err.code === '23505' && err.constraint === 'uq_bookings_active_user_show') {
+          throw errors.activeHoldExists(null);
         }
+        throw err;
       }
 
-      // Update show_seats to HELD
-      await showSeatRepo.markHeld(showId, seatIds, booking.id, holdExpiresAt.toISOString(), client);
+      // Update show_seats to HELD using database-generated hold_expires_at
+      await showSeatRepo.markHeld(showId, seatIds, booking.id, booking.hold_expires_at, client);
 
       return booking;
     });
@@ -307,13 +294,21 @@ export const bookingService = {
     await withTransaction(async (client) => {
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
 
-      if (row.is_past_expiry) {
+      const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
+      if (!locked) {
+        throw errors.notFound('Booking not found.');
+      }
+      if (locked.status !== 'CREATED') {
+        throw errors.invalidState(`Cannot release booking with status ${locked.status}.`);
+      }
+
+      if (locked.is_expired) {
         await bookingRepo.markExpired(bookingId, client);
       } else {
         await bookingRepo.markCancelled(bookingId, client);
       }
 
-      await showSeatRepo.releaseHeldSeats(row.show_id, bookingId, client);
+      await showSeatRepo.releaseHeldSeats(locked.show_id, bookingId, client);
     });
   },
 

@@ -12,7 +12,7 @@ export const seatsService = {
     }
 
     const [sections, rawSeats, activeHold] = await Promise.all([
-      seatsRepo.findSections(show.screen_id),
+      seatsRepo.findSections(showId),
       seatsRepo.findSeatsWithStatus(showId, show.screen_id, userId),
       seatsRepo.findActiveUserHold(showId, userId),
     ]);
