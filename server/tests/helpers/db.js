@@ -133,20 +133,51 @@ export async function seedTestShow(pool = testPool) {
   `);
   const movieId = mRes.rows[0].id;
 
-  // Future show
-  const showRes = await pool.query(`
+  // ----- Shows that all start today (few minutes apart) -----
+  // 1️⃣ First show – starts in 5 minutes
+  const showRes1 = await pool.query(`
     INSERT INTO shows (movie_id, screen_id, starts_at, language, format)
-    VALUES ($1, $2, now() + interval '2 hours', 'Hindi', 'LASER')
+    VALUES ($1, $2, now() + interval '5 minutes', 'Hindi', 'LASER')
     RETURNING id
   `, [movieId, screenId]);
-  const showId = showRes.rows[0].id;
+  const showId1 = showRes1.rows[0].id;
 
-  // Inventory for active seats
+  // 2️⃣ Second show – starts in 15 minutes
+  const showRes2 = await pool.query(`
+    INSERT INTO shows (movie_id, screen_id, starts_at, language, format)
+    VALUES ($1, $2, now() + interval '15 minutes', 'Hindi', 'LASER')
+    RETURNING id
+  `, [movieId, screenId]);
+  const showId2 = showRes2.rows[0].id;
+
+  // 3️⃣ Third show – starts in 30 minutes
+  const showRes3 = await pool.query(`
+    INSERT INTO shows (movie_id, screen_id, starts_at, language, format)
+    VALUES ($1, $2, now() + interval '30 minutes', 'Hindi', 'LASER')
+    RETURNING id
+  `, [movieId, screenId]);
+  const showId3 = showRes3.rows[0].id;
+
+  // Use the first show for the standard test flow
+  const showId = showId1;
+
+  // ----- Populate seats for each show -----
   for (const sId of seatIds) {
+    // Show 1
     await pool.query(`
       INSERT INTO show_seats (show_id, seat_id, status, price_cents)
       VALUES ($1, $2, 'AVAILABLE', 32000)
-    `, [showId, sId]);
+    `, [showId1, sId]);
+    // Show 2
+    await pool.query(`
+      INSERT INTO show_seats (show_id, seat_id, status, price_cents)
+      VALUES ($1, $2, 'AVAILABLE', 32000)
+    `, [showId2, sId]);
+    // Show 3
+    await pool.query(`
+      INSERT INTO show_seats (show_id, seat_id, status, price_cents)
+      VALUES ($1, $2, 'AVAILABLE', 32000)
+    `, [showId3, sId]);
   }
 
   return {

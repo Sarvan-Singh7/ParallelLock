@@ -86,7 +86,10 @@ export const bookingService = {
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
 
       // 2. Lock caller's user row to serialize concurrent hold requests from the same user
-      await bookingRepo.lockUserRow(userId, client);
+      const user = await bookingRepo.lockUserRow(userId, client);
+      if (!user) {
+        throw errors.unauthorized('User not found or session expired. Please log in again.');
+      }
 
       // 3. Check for existing booking with this idempotency key
       if (idempotencyKey) {
@@ -204,22 +207,23 @@ export const bookingService = {
    * 3. Finalize in transaction: lock booking, update show_seats to BOOKED, confirm booking.
    */
   async payBooking({ bookingId, userId, method }) {
-    // 1. Quick read validation
+    // 1️⃣ Quick validation – fetch booking details (read‑only)
     const row = await bookingRepo.findBookingDetails(bookingId);
-    if (!row) {
-      throw errors.notFound('Booking not found.');
-    }
-    if (String(row.user_id) !== String(userId)) {
+    if (!row) throw errors.notFound('Booking not found.');
+    if (String(row.user_id) !== String(userId))
       throw errors.forbidden('You do not have permission to pay for this booking.');
-    }
+
+    // 2️⃣ Idempotent re‑play handling – if already CONFIRMED return the same booking
     if (row.status === 'CONFIRMED') {
-      // TODO(P2-M2): charge can still run twice until PAYMENT_PENDING exists
-      const fullBooking = await this.getBookingById({ bookingId, userId });
-      return {
-        ...fullBooking,
-        replayed: true,
-      };
+      const full = await this.getBookingById({ bookingId, userId });
+      return { ...full, replayed: true };
     }
+    // If a previous request already set PAYMENT_PENDING, treat as replay as well
+    if (row.status === 'PAYMENT_PENDING') {
+      const full = await this.getBookingById({ bookingId, userId });
+      return { ...full, replayed: true };
+    }
+    // Anything else besides CREATED is an illegal state for payment
     if (row.status !== 'CREATED') {
       throw errors.invalidState(`Booking is already ${row.status.toLowerCase()}.`);
     }
@@ -228,52 +232,62 @@ export const bookingService = {
       throw errors.holdExpired();
     }
 
-    // 2. Call payment strategy outside DB transaction
-    await paymentService.processPayment({
-      method,
-      bookingId,
-      totalCents: Number(row.total_cents),
-    });
-
-    // 3. Finalize in one transaction
-    let replayed = false;
+    // 3️⃣ First transaction – lock the row and move it to PAYMENT_PENDING
+    let pendingSet = false;
     await withTransaction(async (client) => {
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
-
       const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
-      if (!locked) {
-        throw errors.notFound('Booking not found.');
-      }
-      if (locked.status === 'CONFIRMED') {
-        // Concurrently confirmed
-        replayed = true;
-        return;
-      }
+      if (!locked) throw errors.notFound('Booking not found.');
       if (locked.status !== 'CREATED') {
-        throw errors.invalidState(`Booking is already ${locked.status.toLowerCase()}.`);
+        // Another concurrent request may have raced us – abort so the caller sees a conflict
+        throw errors.invalidState(`Booking status changed to ${locked.status}`);
       }
-      if (locked.is_expired) {
-        await bookingRepo.markExpired(bookingId, client);
-        throw errors.holdExpired();
-      }
+      // Mark as pending – this is the gate that prevents duplicate charges
+      await bookingRepo.setPaymentPending(bookingId, client);
+      pendingSet = true;
+    });
 
-      // Mark show_seats BOOKED
+    // 4️⃣ External payment – runs outside any DB transaction so we don't hold locks
+    try {
+      await paymentService.processPayment({
+        method,
+        bookingId,
+        totalCents: Number(row.total_cents),
+      });
+    } catch (err) {
+      // If payment fails we roll back the pending flag so the client can retry
+      if (pendingSet) {
+        await withTransaction(async (client) => {
+          await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
+          await bookingRepo.revertPaymentPending(bookingId, client);
+        });
+      }
+      throw err; // let the outer error handler return 500 / appropriate code
+    }
+
+    // 5️⃣ Final transaction – lock row again, mark seats BOOKED, confirm booking
+    await withTransaction(async (client) => {
+      await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
+      const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
+      if (!locked) throw errors.notFound('Booking not found.');
+      if (locked.status !== 'PAYMENT_PENDING') {
+        // Unexpected state – treat as a conflict
+        throw errors.invalidState(`Unexpected status ${locked.status}`);
+      }
+      // Mark all seats as BOOKED
       const updatedCount = await showSeatRepo.markBooked(locked.show_id, bookingId, client);
       if (updatedCount !== locked.seat_ids.length) {
         throw errors.invalidState('Failed to secure all held seats during payment finalization.');
       }
-
-      // Confirm booking
+      // Finally confirm the booking (sets CONFIRMED and paid_at)
       await bookingRepo.confirmBooking(bookingId, client);
-      // TODO(phase-2): refund path, webhooks, idempotency key
     });
 
-    const fullBooking = await this.getBookingById({ bookingId, userId });
-    return {
-      ...fullBooking,
-      replayed,
-    };
+    const full = await this.getBookingById({ bookingId, userId });
+    return { ...full, replayed: false };
   },
+
+
 
   /**
    * RELEASE:

@@ -1,12 +1,8 @@
-/**
- * booking.repo.js – Database repository for bookings table
- */
+/** booking.repo.js – Database repository for bookings table */
 import pool from '../../db/pool.js';
 
 export const bookingRepo = {
-  /**
-   * Load show to verify existence and check if it has already started.
-   */
+  // Load show for hold
   async findShowForHold(showId, client) {
     const { rows } = await client.query(
       `SELECT id, starts_at, (starts_at <= now()) AS is_closed
@@ -17,9 +13,7 @@ export const bookingRepo = {
     return rows[0] || null;
   },
 
-  /**
-   * Mark caller's own stale bookings for this show as EXPIRED.
-   */
+  // Expire stale user holds
   async expireStaleUserHolds(showId, userId, client) {
     await client.query(
       `UPDATE bookings
@@ -32,9 +26,7 @@ export const bookingRepo = {
     );
   },
 
-  /**
-   * Check for an existing, still-active CREATED hold for this caller on this show.
-   */
+  // Find active user hold
   async findActiveUserHold(showId, userId, client) {
     const { rows } = await client.query(
       `SELECT id, hold_expires_at
@@ -49,16 +41,13 @@ export const bookingRepo = {
     return rows[0] || null;
   },
 
-  /**
-   * Serialize concurrent requests for the same user to prevent race conditions on holds.
-   */
+  // Serialize user row
   async lockUserRow(userId, client) {
-    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const { rows } = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    return rows[0] || null;
   },
 
-  /**
-   * Find an existing booking by user ID and idempotency key.
-   */
+  // Find booking by idempotency key
   async findBookingByIdempotencyKey(userId, idempotencyKey, client) {
     const { rows } = await client.query(
       `SELECT id, ref, user_id, show_id, status, seat_ids, total_cents,
@@ -70,36 +59,29 @@ export const bookingRepo = {
     return rows[0] || null;
   },
 
-  /**
-   * Insert a new booking record with status 'CREATED'.
-   * Uses the database clock (now() + interval) for reliable hold expiry.
-   */
-  async insertBooking({ ref, userId, showId, seatIds, totalCents, holdSeconds, idempotencyKey }, client) {
+  // Insert new booking (CREATED)
+  async insertBooking(
+    { ref, userId, showId, seatIds, totalCents, holdSeconds, idempotencyKey },
+    client
+  ) {
     const { rows } = await client.query(
-      `INSERT INTO bookings (ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, idempotency_key)
-       VALUES ($1, $2, $3, 'CREATED', $4, $5, now() + ($6 || ' seconds')::interval, $7)
-       RETURNING id, ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, paid_at, created_at, idempotency_key`,
+      `INSERT INTO bookings (ref, user_id, show_id, status, seat_ids,
+                            total_cents, hold_expires_at, idempotency_key)
+       VALUES ($1, $2, $3, 'CREATED', $4, $5,
+               now() + ($6 || ' seconds')::interval, $7)
+       RETURNING id, ref, user_id, show_id, status, seat_ids, total_cents,
+                 hold_expires_at, paid_at, created_at, idempotency_key`,
       [ref, userId, showId, seatIds, totalCents, String(holdSeconds), idempotencyKey || null]
     );
     return rows[0];
   },
 
-  /**
-   * Lock booking row for payment finalization.
-   */
+  // Lock booking row for update
   async lockBookingForUpdate(bookingId, client) {
     const { rows } = await client.query(
-      `SELECT
-         id,
-         ref,
-         user_id,
-         show_id,
-         status,
-         seat_ids,
-         total_cents,
-         hold_expires_at,
-         paid_at,
-         (hold_expires_at <= now()) AS is_expired
+      `SELECT id, ref, user_id, show_id, status, seat_ids, total_cents,
+              hold_expires_at, paid_at,
+              (hold_expires_at <= now()) AS is_expired
        FROM bookings
        WHERE id = $1
        FOR UPDATE`,
@@ -108,24 +90,40 @@ export const bookingRepo = {
     return rows[0] || null;
   },
 
-  /**
-   * Update booking status to CONFIRMED and record paid_at timestamp.
-   */
+  // Set status to PAYMENT_PENDING
+  async setPaymentPending(bookingId, client) {
+    await client.query(
+      `UPDATE bookings
+       SET status = 'PAYMENT_PENDING'
+       WHERE id = $1 AND status = 'CREATED'`,
+      [bookingId]
+    );
+  },
+
+  // Revert PAYMENT_PENDING back to CREATED (on payment failure)
+  async revertPaymentPending(bookingId, client) {
+    await client.query(
+      `UPDATE bookings
+       SET status = 'CREATED'
+       WHERE id = $1 AND status = 'PAYMENT_PENDING'`,
+      [bookingId]
+    );
+  },
+
+  // Confirm booking (requires PAYMENT_PENDING)
   async confirmBooking(bookingId, client) {
     const { rows } = await client.query(
       `UPDATE bookings
        SET status = 'CONFIRMED',
            paid_at = now()
-       WHERE id = $1
+       WHERE id = $1 AND status = 'PAYMENT_PENDING'
        RETURNING id, ref, status, paid_at`,
       [bookingId]
     );
     return rows[0];
   },
 
-  /**
-   * Mark a booking EXPIRED (conditional on status='CREATED').
-   */
+  // Mark EXPIRED (only if still CREATED)
   async markExpired(bookingId, db = pool) {
     await db.query(
       `UPDATE bookings
@@ -135,9 +133,7 @@ export const bookingRepo = {
     );
   },
 
-  /**
-   * Mark a booking CANCELLED (conditional on status='CREATED').
-   */
+  // Mark CANCELLED (only if still CREATED)
   async markCancelled(bookingId, client) {
     await client.query(
       `UPDATE bookings
@@ -147,36 +143,20 @@ export const bookingRepo = {
     );
   },
 
-  /**
-   * Fetch full booking details with show, movie, screen, and theater info.
-   */
+  // Fetch full booking details
   async findBookingDetails(bookingId, db = pool) {
     const { rows } = await db.query(
-      `SELECT
-         b.id,
-         b.ref,
-         b.user_id,
-         b.show_id,
-         b.status,
-         b.seat_ids,
-         b.total_cents,
-         b.hold_expires_at,
-         b.paid_at,
-         b.created_at,
-         (b.hold_expires_at <= now()) AS is_past_expiry,
-         s.id AS s_id,
-         s.starts_at,
-         s.language,
-         s.format,
-         sc.name AS screen_name,
-         m.id AS movie_id,
-         m.title AS movie_title,
-         m.certificate AS movie_certificate,
-         m.duration_min AS movie_duration_min,
-         m.poster_url AS movie_poster_url,
-         t.name AS theater_name,
-         t.address AS theater_address,
-         t.city AS theater_city
+      `SELECT b.id, b.ref, b.user_id, b.show_id, b.status, b.seat_ids,
+              b.total_cents, b.hold_expires_at, b.paid_at, b.created_at,
+              (b.hold_expires_at <= now()) AS is_past_expiry,
+              s.id AS s_id, s.starts_at, s.language, s.format,
+              sc.name AS screen_name,
+              m.id AS movie_id, m.title AS movie_title,
+              m.certificate AS movie_certificate,
+              m.duration_min AS movie_duration_min,
+              m.poster_url AS movie_poster_url,
+              t.name AS theater_name, t.address AS theater_address,
+              t.city AS theater_city
        FROM bookings b
        JOIN shows s    ON s.id = b.show_id
        JOIN screens sc ON sc.id = s.screen_id
@@ -188,36 +168,20 @@ export const bookingRepo = {
     return rows[0] || null;
   },
 
-  /**
-   * List all bookings for a user, newest first.
-   */
+  // List user bookings (newest first)
   async listUserBookings(userId, limit = 50, db = pool) {
     const { rows } = await db.query(
-      `SELECT
-         b.id,
-         b.ref,
-         b.user_id,
-         b.show_id,
-         b.status,
-         b.seat_ids,
-         b.total_cents,
-         b.hold_expires_at,
-         b.paid_at,
-         b.created_at,
-         (b.hold_expires_at <= now()) AS is_past_expiry,
-         s.id AS s_id,
-         s.starts_at,
-         s.language,
-         s.format,
-         sc.name AS screen_name,
-         m.id AS movie_id,
-         m.title AS movie_title,
-         m.certificate AS movie_certificate,
-         m.duration_min AS movie_duration_min,
-         m.poster_url AS movie_poster_url,
-         t.name AS theater_name,
-         t.address AS theater_address,
-         t.city AS theater_city
+      `SELECT b.id, b.ref, b.user_id, b.show_id, b.status, b.seat_ids,
+              b.total_cents, b.hold_expires_at, b.paid_at, b.created_at,
+              (b.hold_expires_at <= now()) AS is_past_expiry,
+              s.id AS s_id, s.starts_at, s.language, s.format,
+              sc.name AS screen_name,
+              m.id AS movie_id, m.title AS movie_title,
+              m.certificate AS movie_certificate,
+              m.duration_min AS movie_duration_min,
+              m.poster_url AS movie_poster_url,
+              t.name AS theater_name, t.address AS theater_address,
+              t.city AS theater_city
        FROM bookings b
        JOIN shows s    ON s.id = b.show_id
        JOIN screens sc ON sc.id = s.screen_id
