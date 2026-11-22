@@ -3,6 +3,11 @@
  */
 import { z } from 'zod';
 
+export const idempotencyKeySchema = z
+  .string()
+  .min(1, 'Idempotency-Key must not be empty.')
+  .max(100, 'Idempotency-Key must not exceed 100 characters.');
+
 export const holdSchema = z.object({
   seatIds: z
     .array(z.coerce.number().int().positive())

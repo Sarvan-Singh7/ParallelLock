@@ -28,7 +28,7 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **Auth & Security** | **Built** | Argon2id password hashing, JWT with HS256, CORS whitelist, Helmet headers |
 | **Automated Concurrency Test Suite** | **Built** | 100 & 500 parallel user contention tests + 300 deadlock reversal tests |
 | **React Interactive Booking Client** | **Built** | Movie catalog, auditorium layout, seat selection, 8-min countdown, checkout & tickets |
-| **Idempotency Keys (`Idempotency-Key`)** | *Planned (P2-M1)* | Prevent duplicate charges and holds on network retries |
+| **Idempotency Keys (`Idempotency-Key`)** | **Built** | Prevents duplicate holds on retry; returns `200` with `Idempotency-Replayed: true` |
 | **Payment Status State Machine (`PAYMENT_PENDING`)** | *Planned (P2-M2)* | Strict two-phase commit for external payment settlement |
 | **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
 | **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |

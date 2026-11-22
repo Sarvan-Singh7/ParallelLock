@@ -2,6 +2,8 @@
  * booking.controller.js – Thin controller for booking endpoints
  */
 import { bookingService } from './booking.service.js';
+import { idempotencyKeySchema } from './booking.schema.js';
+import { errors } from '../../common/errors.js';
 
 export const bookingController = {
   async createHold(req, res, next) {
@@ -9,8 +11,27 @@ export const bookingController = {
       const showId = req.params.id;
       const { seatIds } = req.body;
       const userId = req.user.id;
+      const idempotencyKey = req.headers['idempotency-key'];
 
-      const result = await bookingService.createHold({ showId, seatIds, userId });
+      if (idempotencyKey !== undefined) {
+        const parsed = idempotencyKeySchema.safeParse(idempotencyKey);
+        if (!parsed.success) {
+          throw errors.validation('Idempotency-Key must be a string between 1 and 100 characters.');
+        }
+      }
+
+      const result = await bookingService.createHold({
+        showId,
+        seatIds,
+        userId,
+        idempotencyKey: idempotencyKey ? idempotencyKey.trim() : null,
+      });
+
+      if (result.replayed) {
+        res.setHeader('Idempotency-Replayed', 'true');
+        return res.status(200).json(result);
+      }
+
       res.status(201).json(result);
     } catch (err) {
       next(err);
@@ -36,6 +57,9 @@ export const bookingController = {
       const { method } = req.body;
 
       const result = await bookingService.payBooking({ bookingId, userId, method });
+      if (result.replayed) {
+        res.setHeader('Idempotency-Replayed', 'true');
+      }
       res.status(200).json(result);
     } catch (err) {
       next(err);

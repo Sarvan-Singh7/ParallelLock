@@ -50,14 +50,35 @@ export const bookingRepo = {
   },
 
   /**
+   * Serialize concurrent requests for the same user to prevent race conditions on holds.
+   */
+  async lockUserRow(userId, client) {
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+  },
+
+  /**
+   * Find an existing booking by user ID and idempotency key.
+   */
+  async findBookingByIdempotencyKey(userId, idempotencyKey, client) {
+    const { rows } = await client.query(
+      `SELECT id, ref, user_id, show_id, status, seat_ids, total_cents,
+              hold_expires_at, paid_at, created_at, idempotency_key
+       FROM bookings
+       WHERE user_id = $1 AND idempotency_key = $2`,
+      [userId, idempotencyKey]
+    );
+    return rows[0] || null;
+  },
+
+  /**
    * Insert a new booking record with status 'CREATED'.
    */
-  async insertBooking({ ref, userId, showId, seatIds, totalCents, holdExpiresAt }, client) {
+  async insertBooking({ ref, userId, showId, seatIds, totalCents, holdExpiresAt, idempotencyKey }, client) {
     const { rows } = await client.query(
-      `INSERT INTO bookings (ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at)
-       VALUES ($1, $2, $3, 'CREATED', $4, $5, $6)
-       RETURNING id, ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, paid_at, created_at`,
-      [ref, userId, showId, seatIds, totalCents, holdExpiresAt]
+      `INSERT INTO bookings (ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, idempotency_key)
+       VALUES ($1, $2, $3, 'CREATED', $4, $5, $6, $7)
+       RETURNING id, ref, user_id, show_id, status, seat_ids, total_cents, hold_expires_at, paid_at, created_at, idempotency_key`,
+      [ref, userId, showId, seatIds, totalCents, holdExpiresAt, idempotencyKey || null]
     );
     return rows[0];
   },

@@ -80,12 +80,32 @@ export const bookingService = {
    * 7. Insert booking and mark show_seats HELD
    * 8. Commit
    */
-  async createHold({ showId, seatIds, userId }) {
+  async createHold({ showId, seatIds, userId, idempotencyKey }) {
     const bookingRow = await withTransaction(async (client) => {
       // 1. Set transaction timeouts
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
 
-      // 2. Load show and verify not closed
+      // 2. Lock caller's user row to serialize concurrent hold requests from the same user
+      await bookingRepo.lockUserRow(userId, client);
+
+      // 3. Check for existing booking with this idempotency key
+      if (idempotencyKey) {
+        const existing = await bookingRepo.findBookingByIdempotencyKey(userId, idempotencyKey, client);
+        if (existing) {
+          const reqSorted = [...seatIds].map(Number).sort((a, b) => a - b);
+          const existingSorted = [...existing.seat_ids].map(Number).sort((a, b) => a - b);
+          const isSame =
+            reqSorted.length === existingSorted.length &&
+            reqSorted.every((id, idx) => id === existingSorted[idx]);
+
+          if (isSame) {
+            return { ...existing, replayed: true };
+          }
+          throw errors.idempotencyKeyReused();
+        }
+      }
+
+      // 4. Load show and verify not closed
       const show = await bookingRepo.findShowForHold(showId, client);
       if (!show) {
         throw errors.notFound('Show not found.');
@@ -94,22 +114,22 @@ export const bookingService = {
         throw errors.showClosed();
       }
 
-      // 3. Clean up caller's stale holds and verify no active hold exists
+      // 5. Clean up caller's stale holds and verify no active hold exists
       await bookingRepo.expireStaleUserHolds(showId, userId, client);
       const activeHold = await bookingRepo.findActiveUserHold(showId, userId, client);
       if (activeHold) {
         throw errors.activeHoldExists(String(activeHold.id));
       }
 
-      // 4. Ordered row lock on requested show_seats
+      // 6. Ordered row lock on requested show_seats
       const lockedSeats = await showSeatRepo.lockSeatsForHold(showId, seatIds, client);
 
-      // 5. If fewer rows returned, one or more seats don't exist or are blocked (is_active=false)
+      // 7. If fewer rows returned, one or more seats don't exist or are blocked (is_active=false)
       if (lockedSeats.length < seatIds.length) {
         throw errors.invalidSeats('One or more selected seats do not exist or are blocked.');
       }
 
-      // 6. Check if any seat is not free
+      // 8. Check if any seat is not free
       const unavailableSeatIds = lockedSeats
         .filter((s) => !s.is_free)
         .map((s) => Number(s.seat_id))
@@ -119,7 +139,7 @@ export const bookingService = {
         throw errors.seatUnavailable(unavailableSeatIds);
       }
 
-      // 7. Calculate total and insert booking
+      // 9. Calculate total and insert booking
       const totalCents = lockedSeats.reduce((sum, s) => sum + Number(s.price_cents), 0);
       const holdExpiresAt = new Date(Date.now() + env.HOLD_SECONDS * 1000);
 
@@ -139,6 +159,7 @@ export const bookingService = {
               seatIds,
               totalCents,
               holdExpiresAt: holdExpiresAt.toISOString(),
+              idempotencyKey: idempotencyKey || null,
             },
             client
           );
@@ -164,7 +185,10 @@ export const bookingService = {
     });
 
     const fullBooking = await this.getBookingById({ bookingId: bookingRow.id, userId });
-    return fullBooking;
+    return {
+      ...fullBooking,
+      replayed: Boolean(bookingRow.replayed),
+    };
   },
 
   /**
@@ -201,6 +225,14 @@ export const bookingService = {
     if (String(row.user_id) !== String(userId)) {
       throw errors.forbidden('You do not have permission to pay for this booking.');
     }
+    if (row.status === 'CONFIRMED') {
+      // TODO(P2-M2): charge can still run twice until PAYMENT_PENDING exists
+      const fullBooking = await this.getBookingById({ bookingId, userId });
+      return {
+        ...fullBooking,
+        replayed: true,
+      };
+    }
     if (row.status !== 'CREATED') {
       throw errors.invalidState(`Booking is already ${row.status.toLowerCase()}.`);
     }
@@ -217,12 +249,18 @@ export const bookingService = {
     });
 
     // 3. Finalize in one transaction
+    let replayed = false;
     await withTransaction(async (client) => {
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
 
       const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
       if (!locked) {
         throw errors.notFound('Booking not found.');
+      }
+      if (locked.status === 'CONFIRMED') {
+        // Concurrently confirmed
+        replayed = true;
+        return;
       }
       if (locked.status !== 'CREATED') {
         throw errors.invalidState(`Booking is already ${locked.status.toLowerCase()}.`);
@@ -243,7 +281,11 @@ export const bookingService = {
       // TODO(phase-2): refund path, webhooks, idempotency key
     });
 
-    return this.getBookingById({ bookingId, userId });
+    const fullBooking = await this.getBookingById({ bookingId, userId });
+    return {
+      ...fullBooking,
+      replayed,
+    };
   },
 
   /**

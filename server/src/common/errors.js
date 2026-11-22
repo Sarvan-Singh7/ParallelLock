@@ -36,6 +36,7 @@ export const errors = {
   activeHoldExists: (bookingId)        => new AppError(409, 'ACTIVE_HOLD_EXISTS',    'You already have an active hold for this show.', { bookingId }),
   showClosed:       ()                 => new AppError(409, 'SHOW_CLOSED',           'This show has already started.'),
   invalidState:     (message)          => new AppError(409, 'INVALID_STATE',         message ?? 'Operation not allowed in the current state.'),
+  idempotencyKeyReused: ()             => new AppError(422, 'IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used with a different seat selection.'),
   holdExpired:      ()                 => new AppError(410, 'HOLD_EXPIRED',          'Your seat hold has expired.'),
   serviceUnavailable: ()               => new AppError(503, 'SERVICE_UNAVAILABLE',   'The service is temporarily busy. Please try again.'),
 };

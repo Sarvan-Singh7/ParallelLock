@@ -44,6 +44,11 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "idem-key-{{$guid}}",
+								"description": "Optional client-generated idempotency key (1-100 chars) ensuring safe retries without duplicate bookings."
 							}
 						],
 						"body": {
@@ -82,6 +87,11 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "idem-key-{{$guid}}",
+								"description": "Optional client-generated idempotency key (1-100 chars) ensuring safe retries without duplicate bookings."
 							}
 						],
 						"body": {
@@ -197,6 +207,11 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "idem-key-{{$guid}}",
+								"description": "Optional client-generated idempotency key (1-100 chars) ensuring safe retries without duplicate bookings."
 							}
 						],
 						"body": {
@@ -254,6 +269,11 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Idempotency-Key",
+								"value": "idem-key-{{$guid}}",
+								"description": "Optional client-generated idempotency key (1-100 chars) ensuring safe retries without duplicate bookings."
 							}
 						],
 						"body": {

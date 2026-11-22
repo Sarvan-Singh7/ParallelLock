@@ -33,6 +33,22 @@ export function SeatPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [idempotencyInfo, setIdempotencyInfo] = useState({ selection: '', key: '' });
+
+  // Compute sorted selection signature to detect changes
+  const selectedSignature = state.selectedSeats
+    .map((s) => s.id)
+    .sort((a, b) => a - b)
+    .join(',');
+
+  const getIdempotencyKey = () => {
+    if (idempotencyInfo.selection === selectedSignature && idempotencyInfo.key) {
+      return idempotencyInfo.key;
+    }
+    const newKey = crypto.randomUUID();
+    setIdempotencyInfo({ selection: selectedSignature, key: newKey });
+    return newKey;
+  };
 
   // Sync maxSeats if searchParam changes
   useEffect(() => {
@@ -92,13 +108,24 @@ export function SeatPage() {
 
     try {
       const seatIds = state.selectedSeats.map((s) => s.id);
-      const res = await api.post(`/shows/${showId}/holds`, { seatIds });
+      const idempotencyKey = getIdempotencyKey();
 
-      // Hold acquired! Redirect to checkout
+      const res = await api.post(
+        `/shows/${showId}/holds`,
+        { seatIds },
+        {
+          headers: {
+            'Idempotency-Key': idempotencyKey,
+          },
+        }
+      );
+
+      // Hold acquired or replayed! Redirect to checkout
       navigate(`/checkout/${res.booking.id}`);
     } catch (err) {
-      // If 409 Conflict: another user held/bought the seats in the exact same millisecond
-      if (err.status === 409) {
+      if (err.code === 'IDEMPOTENCY_KEY_REUSED') {
+        setError('Your seat selection has changed. Please review and try holding again.');
+      } else if (err.status === 409) {
         setError(
           'Someone else just grabbed one of your selected seats! The seat map has been updated. Please choose available seats.'
         );

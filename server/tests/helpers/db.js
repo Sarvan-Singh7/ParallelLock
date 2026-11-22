@@ -17,16 +17,47 @@ const testUrl = env.TEST_DATABASE_URL || env.DATABASE_URL;
 export const testPool = new pg.Pool({ connectionString: testUrl });
 
 export async function setupTestDb() {
-  const schemaPath = path.join(__dirname, '../../src/db/migrations/001_schema.sql');
-  const schemaSql = await fs.readFile(schemaPath, 'utf8');
+  const migrationsDir = path.join(__dirname, '../../src/db/migrations');
+  const files = (await fs.readdir(migrationsDir))
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
 
-  // Check if tables already exist
-  const res = await testPool.query(`
-    SELECT to_regclass('public.users') as exists;
+  await testPool.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      filename TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
   `);
 
-  if (!res.rows[0].exists) {
-    await testPool.query(schemaSql);
+  // If tables existed before migration tracking was added to test db, record 001_schema.sql
+  const usersCheck = await testPool.query(`SELECT to_regclass('public.users') as exists;`);
+  if (usersCheck.rows[0].exists) {
+    await testPool.query(`
+      INSERT INTO schema_migrations (filename) VALUES ('001_schema.sql')
+      ON CONFLICT (filename) DO NOTHING;
+    `);
+  }
+
+  for (const file of files) {
+    const { rows } = await testPool.query(
+      'SELECT 1 FROM schema_migrations WHERE filename = $1',
+      [file]
+    );
+    if (rows.length === 0) {
+      const sql = await fs.readFile(path.join(migrationsDir, file), 'utf8');
+      await testPool.query('BEGIN');
+      try {
+        await testPool.query(sql);
+        await testPool.query(
+          'INSERT INTO schema_migrations (filename) VALUES ($1)',
+          [file]
+        );
+        await testPool.query('COMMIT');
+      } catch (err) {
+        await testPool.query('ROLLBACK');
+        throw err;
+      }
+    }
   }
 }
 
