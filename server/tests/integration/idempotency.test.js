@@ -219,7 +219,7 @@ describe('Idempotency Keys (P2-M1)', () => {
     const payRes1 = await request(app)
       .post(`/api/v1/bookings/${bookingId}/pay`)
       .set('Authorization', `Bearer ${user1Token}`)
-      .send({ method: 'CARD' });
+      .send({ method: 'MOCK' });
 
     expect(payRes1.status).toBe(200);
     expect(payRes1.body.booking.status).toBe('CONFIRMED');
@@ -229,7 +229,7 @@ describe('Idempotency Keys (P2-M1)', () => {
     const payRes2 = await request(app)
       .post(`/api/v1/bookings/${bookingId}/pay`)
       .set('Authorization', `Bearer ${user1Token}`)
-      .send({ method: 'CARD' });
+      .send({ method: 'MOCK' });
 
     expect(payRes2.status).toBe(200);
     expect(payRes2.body.booking.status).toBe('CONFIRMED');
