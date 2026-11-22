@@ -1,147 +1,170 @@
 # ParallelLock
 
-A high-concurrency movie ticket booking engine built with **Node.js**, **Express**, **PostgreSQL**, and **React**. Built to solve the classic "check-then-act" race condition and deadlocks in high-demand seat reservation systems using PostgreSQL row-level locks and transactional isolation.
+A production-grade, high-concurrency movie ticket booking engine built with **Node.js**, **Express**, **PostgreSQL**, and **React**.
+
+ParallelLock demonstrates how to solve the classic **"check-then-act" race condition**, double-booking anomalies, and distributed deadlocks in high-demand seat reservation systems using **PostgreSQL row-level locks** (`SELECT ... FOR UPDATE`) and transactional isolation—without external cache layers or distributed lock managers.
 
 ---
 
 ## ⚡ What It Solves
 
-When multiple users try to book the same seat at the exact same millisecond:
-- **No Double-Booking:** Strict row-level locking (`SELECT ... FOR UPDATE`) guarantees only one user can hold a seat. All competing requests fail fast with `409 Conflict`.
-- **No Deadlocks:** Seats in multi-seat reservations are always locked in ascending numerical order (`ORDER BY seat_id ASC`), preventing cyclic wait conditions across concurrent transactions.
-- **Fail-Fast Protection:** Configured `lock_timeout = 2s` and `statement_timeout = 5s` prevent slow transactions from exhausting the database pool.
-- **Two-Phase Booking Lifecycle:** Seats transition through `AVAILABLE` ➔ `HELD` (8-minute reservation window) ➔ `BOOKED` (upon payment confirmation).
-- **Decoupled Payment Execution:** Payment processing executes outside database transactions to avoid holding row locks during external network latency.
+When thousands of users contend for the exact same high-demand seats at the exact same millisecond (e.g., blockbuster ticket drops, concert releases):
+1. **Zero Double-Booking:** Strict row-level locking (`SELECT ... FOR UPDATE`) on physical seat records guarantees that exactly one transaction holds a seat. All concurrent competing transactions fail fast with `409 Conflict`.
+2. **Deterministic Deadlock Prevention:** Multi-seat bookings sort seat IDs in strictly ascending numerical order (`ORDER BY seat_id ASC`) prior to acquisition, eliminating cyclic wait graphs across concurrent transactions.
+3. **Fail-Fast Connection Protection:** Configured `lock_timeout = '2s'` and `statement_timeout = '5s'` abort stalled transactions before they can saturate the database connection pool.
+4. **Passive Two-Phase Lifecycle:** Seats transition through `AVAILABLE` ➔ `HELD` (configurable reservation window, default 8 minutes) ➔ `BOOKED` (upon payment confirmation). Expired holds are reclaimed passively during subsequent queries on the database clock (`now()`), eliminating dependency on background sweeper crons.
+5. **Decoupled Payment Execution:** Payment processing runs outside database transactions, preventing slow third-party payment gateways from holding database locks.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ Architecture: Built vs. Planned
 
-- **Backend:** Node.js (>=20, ESM), Express.js, `pg` (node-postgres with connection pooling & parameterized SQL)
-- **Database:** PostgreSQL 16 Alpine (via Docker Compose on port `5433`)
-- **Authentication & Security:** JWT (JSON Web Tokens), Argon2 password hashing
-- **Validation:** Zod schemas
-- **Frontend:** React 18, Vite, React Router 6, CSS Modules
-- **Testing & Tooling:** Vitest, Supertest, Docker
-
----
-
-## ✨ Features Implemented
-
-### Backend (API)
-- **Authentication:** User registration and login with Argon2 password hashing and JWT issuance.
-- **Movie Catalog:** Endpoints to list movies, details, and schedules grouped by theater and screen format.
-- **Real-Time Seat Map:** Returns seat coordinates, pricing tiers (Gold/Silver), and dynamic availability status (`AVAILABLE`, `MINE`, `UNAVAILABLE`, `BLOCKED`).
-- **Transactional Holds:** Atomically places an 8-minute hold on selected seats with single-active-hold enforcement per user.
-- **Checkout & Payment:** Payment confirmation endpoint that finalizes held seats to booked status.
-- **Hold Release:** Cancellation endpoint that instantly returns held seats back to the available inventory pool.
-- **User Bookings:** Endpoint to retrieve personal booking history with ticket details.
-
-### Frontend (Client)
-- **Movie Browsing:** Movie listing with genre tags, duration, certificates, and showtime selectors.
-- **Interactive Seat Layout:** Visual grid displaying screen orientation, aisles, active seats, and pricing tiers.
-- **Live Seat State Sync:** Client polls seat status every 5 seconds to reflect real-time holds by other users.
-- **Seat Limit Selector:** Modal to choose seat quantity (1–10 seats) before selection.
-- **Hold Countdown Timer:** Visual 8-minute countdown on checkout with auto-expiration warning.
-- **Checkout Flow:** Payment method selection (Card, UPI, Netbanking) with ticket card preview and printable receipt view.
-- **My Bookings Dashboard:** View past tickets and active holds.
+| Layer / Feature | Status | Details |
+|---|:---:|---|
+| **PostgreSQL Schema & Row Locks** | **Built** | `shows`, `seats`, `show_seats`, `bookings`, `users` with foreign keys and unique constraints |
+| **Deterministic Seat Ordering** | **Built** | `SELECT ... FOR UPDATE` ordered by `seat_id ASC` |
+| **Fail-Fast Lock Timeouts** | **Built** | `lock_timeout = 2s`, `statement_timeout = 5s` per transaction |
+| **Passive Expiry on DB Clock** | **Built** | Expiry evaluated against `now()` in SQL queries |
+| **Auth & Security** | **Built** | Argon2id password hashing, JWT with HS256, CORS whitelist, Helmet headers |
+| **Automated Concurrency Test Suite** | **Built** | 100 & 500 parallel user contention tests + 300 deadlock reversal tests |
+| **React Interactive Booking Client** | **Built** | Movie catalog, auditorium layout, seat selection, 8-min countdown, checkout & tickets |
+| **Idempotency Keys (`Idempotency-Key`)** | *Planned (P2-M1)* | Prevent duplicate charges and holds on network retries |
+| **Payment Status State Machine (`PAYMENT_PENDING`)** | *Planned (P2-M2)* | Strict two-phase commit for external payment settlement |
+| **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
+| **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
 
 ---
 
-## 🔌 API Endpoints
+## 🛠️ Prerequisites
 
-Base path: `/api/v1`
-
-| Method | Endpoint | Auth | Description |
-|---|---|:---:|---|
-| `POST` | `/auth/register` | No | Register new user account |
-| `POST` | `/auth/login` | No | Authenticate user & return JWT |
-| `GET` | `/movies` | No | List all movies |
-| `GET` | `/movies/:id/shows` | No | List upcoming shows for a movie |
-| `GET` | `/shows/:id/seats` | Optional | Get seat layout and live status |
-| `POST` | `/shows/:id/holds` | **Yes** | Place a transactional hold on seats |
-| `GET` | `/bookings/:id` | **Yes** | Get booking and ticket details |
-| `POST` | `/bookings/:id/pay` | **Yes** | Complete payment & confirm booking |
-| `DELETE` | `/bookings/:id` | **Yes** | Release held seats back to pool |
-| `GET` | `/me/bookings` | **Yes** | View authenticated user's booking history |
-| `GET` | `/health` | No | Server health check probe |
+- **Node.js:** `>= 20.0.0` (uses native ESM and Node `--env-file`)
+- **Docker & Docker Compose:** For running the isolated PostgreSQL 16 Alpine container
+- **Git**
 
 ---
 
-## 🧪 Concurrency Demos & Tests
+## 🚀 Exact Setup Commands
 
-### 1. Parallel Hold Demo (`demo:parallel`)
-Fires 20 concurrent requests for the exact same seat at the exact same time:
+### 1. Start the PostgreSQL Container
+From the repository root (`parallellock/`):
 ```bash
-cd server
-npm run demo:parallel
-```
-*Result:* Exactly 1 request wins (`201 Created`), 19 requests are rejected (`409 Conflict`), and database verifies exactly 1 held row.
-
-### 2. Lock-Free Race Condition Demo (`demo:unsafe`)
-Simulates the check-then-act vulnerability when row locks are disabled:
-```bash
-cd server
-npm run demo:unsafe
-```
-*Result:* Multiple concurrent workers read the seat as available and overwrite each other, demonstrating why row-level locking is required.
-
-### 3. Automated Concurrency Tests
-Run the automated Vitest concurrency test suite:
-```bash
-cd server
-npm run test:concurrency
-```
-- **`parallelHold.test.js`:** Fires 100 and 500 concurrent requests against a single seat to verify zero double-booking and zero 5xx server errors.
-- **`oppositeOrder.test.js`:** Runs 300 iterations of two users attempting to lock seats in reverse order (`[s1, s2]` vs `[s2, s1]`) to prove zero deadlocks (`40P01`).
-
-To run the full test suite (integration + concurrency):
-```bash
-npm test
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js `>= 20`
-- Docker & Docker Compose
-
-### 1. Start PostgreSQL
-```bash
-cd parallellock
 docker compose up -d
 ```
-*Note: PostgreSQL is exposed on port **5433** to avoid collisions with any local PostgreSQL instance.*
+> **Note:** PostgreSQL is mapped to host port **`5433`** (internal `5432`) to prevent port collisions with any existing local PostgreSQL instances.
 
-### 2. Setup the Server
+### 2. Configure Environment Variables
 ```bash
 cd server
 cp .env.example .env
+```
+Ensure `server/.env` contains:
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/parallellock
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/parallellock_test
+JWT_SECRET=super_secret_development_key_minimum_32_characters_long_12345
+PORT=4000
+CLIENT_ORIGIN=http://localhost:5173
+HOLD_SECONDS=480
+```
+
+### 3. Run Migrations & Seed the Database
+```bash
+# Still in server directory
 npm install
 npm run migrate
 npm run seed
+```
+> **Important:** Seed data generates showtimes relative to the current execution day (`today`, `today + 1`, `today + 2`). **Re-run `npm run seed` each day** so showtimes remain in the future for testing.
+
+### 4. Start the Backend API Server
+```bash
 npm run dev
 ```
-API server runs on `http://localhost:4000`.
+The API server will listen on `http://localhost:4000`.
 
-### 3. Setup the Client
-In a separate terminal:
+### 5. Start the React Frontend
+In a new terminal window:
 ```bash
 cd parallellock/client
 npm install
 npm run dev
 ```
-Client runs on `http://localhost:5173`.
+The client application will start at `http://localhost:5173`.
 
 ---
 
-## 👤 Seed Accounts
+## 👤 Seed Accounts for Testing
 
 The database comes pre-seeded with sample theaters, movies, shows, and two test users:
 
-| Email | Password |
-|---|---|
-| `alice@example.com` | `Password123` |
-| `bob@example.com` | `Password123` |
+| Email | Password | Role |
+|---|---|---|
+| `alice@example.com` | `Password123` | Customer |
+| `bob@example.com` | `Password123` | Customer |
+
+---
+
+## 🧪 How to Run Tests
+
+Ensure PostgreSQL is running (`docker compose up -d`), then run the test suites from `parallellock/server`:
+
+```bash
+cd server
+
+# Run the complete test suite (integration + concurrency)
+npm test
+
+# Run only the concurrency stress tests
+npm run test:concurrency
+
+# Run only the integration test suite
+npm run test:integration
+```
+
+---
+
+## ⏱️ 5-Minute Live Demo Script
+
+Follow this script to demonstrate the concurrency guarantees live in an interview or demo:
+
+### Demo 1: Two Browsers Competing for the Exact Same Seat
+1. Open an incognito browser window and a regular browser window at `http://localhost:5173`.
+2. In Window 1, log in as `alice@example.com` / `Password123`.
+3. In Window 2, log in as `bob@example.com` / `Password123`.
+4. Both navigate to the same movie showtime (e.g. *The Last Orbit*, 7:30 PM).
+5. Both select the exact same seat (e.g., `F7`).
+6. Click **Proceed** on both browsers at the exact same moment:
+   - **Winner:** One user gets a `201 Created`, holds the seat, and is redirected to checkout with an 8-minute countdown timer.
+   - **Loser:** The other user immediately receives a `409 Conflict` banner stating the seat was just taken, and their seat map refreshes to show `F7` as unavailable.
+
+### Demo 2: 20 Parallel Requests for 1 Seat (`npm run demo:parallel`)
+Demonstrate raw transactional concurrency at the CLI:
+```bash
+cd server
+npm run demo:parallel
+```
+- **What happens:** Fires 20 concurrent HTTP requests across independent worker promises targeting the exact same show and seat ID.
+- **Result:** Exactly **1 request wins** (`201 Created`), **19 requests fail fast** (`409 Conflict`), and a database assertion verifies exactly 1 held row exists.
+
+### Demo 3: The Check-Then-Act Vulnerability (`npm run demo:unsafe`)
+Demonstrate why row-level locking is required by running a simulation without locks:
+```bash
+cd server
+npm run demo:unsafe
+```
+- **What happens:** Simulates the naive `SELECT status FROM seats WHERE ...` followed by `UPDATE seats SET status = 'HELD'`.
+- **Result:** Multiple concurrent workers read the seat as available simultaneously and overwrite each other, causing double-booking anomalies.
+
+### Demo 4: Automatic Passive Hold Expiry
+1. In `server/.env`, set `HOLD_SECONDS=10` and restart the server.
+2. In the browser, select a seat and proceed to checkout.
+3. Watch the countdown timer reach `00:00`.
+4. Refresh or attempt payment—the server rejects payment with `410 Hold Expired` on the database clock and returns the seat back to `AVAILABLE` for any other user to claim immediately.
+
+---
+
+## ⚠️ Known Limitations
+
+1. **Single Node / Single Database:** Row-level locks (`FOR UPDATE`) operate within a single PostgreSQL database instance. Multi-region multi-master databases require distributed coordination or partitioned sharding.
+2. **Transient DB Clock Offset:** Timeouts rely on PostgreSQL `now()`. If application servers have heavy clock drift relative to the database, minor countdown discrepancies can occur (mitigated by using `serverTime` offsets returned in the API responses).
+3. **Seed Dates Relative to Today:** Seeded showtimes are created for today and upcoming days. Re-run `npm run seed` if testing on a new date.
