@@ -13,7 +13,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import catalogRoutes from './modules/catalog/catalog.routes.js';
 import seatsRoutes from './modules/seats/seats.routes.js';
 import { holdsRouter, bookingRouter, meRouter } from './modules/booking/booking.routes.js';
-import webhookRoutes, { adminPaymentRouter } from './modules/payment/payment.routes.js';
+import webhookRoutes from './modules/payment/payment.routes.js';
 
 // TODO(phase-2): mount rate-limiter middleware here.
 
@@ -40,7 +40,6 @@ app.use('/api/v1/shows', holdsRouter);
 app.use('/api/v1/bookings', bookingRouter);
 app.use('/api/v1/me', meRouter);
 app.use('/api/v1/webhooks', webhookRoutes);
-app.use('/api/v1/admin', adminPaymentRouter);
 
 // ── Error handler (must be last) ────────────────────────────────────────────
 app.use(errorHandler);

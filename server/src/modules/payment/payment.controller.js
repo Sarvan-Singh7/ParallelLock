@@ -1,5 +1,5 @@
 /**
- * payment.controller.js – Webhook ingestion + admin refund controller (P2-M3)
+ * payment.controller.js – Webhook ingestion controller (P2-M3)
  */
 import { paymentService } from './payment.service.js';
 import { errors } from '../../common/errors.js';
@@ -60,22 +60,7 @@ export const paymentController = {
         rawPayload: payload,
       });
 
-      // Amount mismatch validation error gets re-thrown as 422
       return res.status(200).json({ received: true, result });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  /**
-   * POST /api/v1/admin/retry-refund/:bookingId
-   * Retry a stuck REFUND_PENDING booking (called by admin or sweeper in P2-M4).
-   */
-  async retryRefund(req, res, next) {
-    try {
-      const { bookingId } = req.params;
-      const result = await paymentService.retryRefund(bookingId);
-      return res.status(200).json({ bookingId, result });
     } catch (err) {
       next(err);
     }

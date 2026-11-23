@@ -16,6 +16,7 @@ import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDb, cleanDb, closeDb, seedTestShow, testPool } from '../helpers/db.js';
 import { mintToken } from '../helpers/tokens.js';
+import { checkInvariants } from '../../scripts/checkInvariants.js';
 
 describe('Pay and Release Race Condition Tests', () => {
   beforeAll(async () => {
@@ -91,6 +92,11 @@ describe('Pay and Release Race Condition Tests', () => {
           throw new Error(`Unexpected booking status after race: ${bookingStatus}`);
         }
       }
+
+      // Database-enforced invariant verification after the concurrency race tests
+      const { passed, violations } = await checkInvariants(testPool);
+      expect(passed, `Invariants violated after race tests: ${JSON.stringify(violations)}`).toBe(true);
+      expect(violations).toEqual([]);
     },
     120_000  // 120-second timeout: 40 sequential iterations each with parallel HTTP requests
   );

@@ -12,6 +12,7 @@ const schema = z.object({
   MOCK_PAYMENT_FAIL: z.preprocess((val) => val === 'true' || val === true, z.boolean()).default(false),
   MOCK_PAYMENT_DELAY_MS: z.coerce.number().int().nonnegative().default(0),
   MOCK_PAYMENT_MODE: z.enum(['sync', 'async']).default('sync'),
+  SWEEPER_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
   NODE_ENV:          z.string().default('development'),
 });
 

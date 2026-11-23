@@ -1,5 +1,6 @@
 /** booking.repo.js – Database repository for bookings table */
 import pool from '../../db/pool.js';
+import { assertTransition } from './bookingStateMachine.js';
 
 export const bookingRepo = {
   // Load show for hold
@@ -79,6 +80,38 @@ export const bookingRepo = {
     return rows[0];
   },
 
+  // Insert line-item tickets in booking_items (written in the hold transaction)
+  async insertBookingItems(items, client) {
+    for (const item of items) {
+      await client.query(
+        `INSERT INTO booking_items (booking_id, show_id, seat_id, price_cents)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (booking_id, seat_id) DO NOTHING`,
+        [item.bookingId, item.showId, item.seatId, item.priceCents]
+      );
+    }
+  },
+
+  // Read ticket line items from booking_items joined with physical seats
+  async getBookingItems(bookingId, db = pool) {
+    const { rows } = await db.query(
+      `SELECT bi.seat_id AS id, bi.price_cents,
+              s.row_label, s.seat_label, s.section
+       FROM booking_items bi
+       JOIN seats s ON s.id = bi.seat_id
+       WHERE bi.booking_id = $1
+       ORDER BY bi.seat_id ASC`,
+      [bookingId]
+    );
+    return rows.map((r) => ({
+      id: String(r.id),
+      rowLabel: r.row_label,
+      seatLabel: r.seat_label,
+      section: r.section,
+      priceCents: Number(r.price_cents),
+    }));
+  },
+
   // Lock booking row for update
   async lockBookingForUpdate(bookingId, client) {
     const { rows } = await client.query(
@@ -95,10 +128,12 @@ export const bookingRepo = {
 
   // Set status to PAYMENT_PENDING and extend hold by 3 minutes
   async setPaymentPending(bookingId, client) {
+    assertTransition('CREATED', 'PAYMENT_PENDING');
     const { rows } = await client.query(
       `UPDATE bookings
        SET status = 'PAYMENT_PENDING',
            payment_started_at = now(),
+           updated_at = now(),
            hold_expires_at = GREATEST(hold_expires_at, now() + interval '3 minutes')
        WHERE id = $1 AND status = 'CREATED'
        RETURNING id, show_id, seat_ids, hold_expires_at, payment_started_at`,
@@ -119,10 +154,12 @@ export const bookingRepo = {
 
   // Revert PAYMENT_PENDING back to CREATED (on payment failure)
   async revertPaymentPending(bookingId, client) {
+    assertTransition('PAYMENT_PENDING', 'CREATED');
     await client.query(
       `UPDATE bookings
        SET status = 'CREATED',
-           payment_started_at = NULL
+           payment_started_at = NULL,
+           updated_at = now()
        WHERE id = $1 AND status = 'PAYMENT_PENDING'`,
       [bookingId]
     );
@@ -145,18 +182,20 @@ export const bookingRepo = {
       const elapsedMs = Date.now() - new Date(row.payment_started_at).getTime();
       if (elapsedMs >= 120_000) {
         if (!row.is_expired) {
+          assertTransition('PAYMENT_PENDING', 'CREATED');
           await client.query(
             `UPDATE bookings
-             SET status = 'CREATED', payment_started_at = NULL
+             SET status = 'CREATED', payment_started_at = NULL, updated_at = now()
              WHERE id = $1 AND status = 'PAYMENT_PENDING' AND payment_started_at < now() - interval '2 minutes'`,
             [bookingId]
           );
           row.status = 'CREATED';
           row.payment_started_at = null;
         } else {
+          assertTransition('PAYMENT_PENDING', 'EXPIRED');
           await client.query(
             `UPDATE bookings
-             SET status = 'EXPIRED', payment_started_at = NULL
+             SET status = 'EXPIRED', payment_started_at = NULL, updated_at = now()
              WHERE id = $1 AND status = 'PAYMENT_PENDING' AND payment_started_at < now() - interval '2 minutes'`,
             [bookingId]
           );
@@ -176,10 +215,18 @@ export const bookingRepo = {
 
   // Confirm booking (accepts CREATED, PAYMENT_PENDING, or EXPIRED if seats still held)
   async confirmBooking(bookingId, client) {
+    const { rows: cur } = await client.query(
+      `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`,
+      [bookingId]
+    );
+    if (cur[0]) {
+      assertTransition(cur[0].status, 'CONFIRMED');
+    }
     const { rows } = await client.query(
       `UPDATE bookings
        SET status = 'CONFIRMED',
-           paid_at = now()
+           paid_at = now(),
+           updated_at = now()
        WHERE id = $1 AND status IN ('CREATED', 'PAYMENT_PENDING', 'EXPIRED')
        RETURNING id, ref, status, paid_at`,
       [bookingId]
@@ -189,9 +236,17 @@ export const bookingRepo = {
 
   // Set status to REFUND_PENDING
   async setRefundPending(bookingId, client) {
+    const { rows: cur } = await client.query(
+      `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`,
+      [bookingId]
+    );
+    if (cur[0]) {
+      assertTransition(cur[0].status, 'REFUND_PENDING');
+    }
     const { rows } = await client.query(
       `UPDATE bookings
-       SET status = 'REFUND_PENDING'
+       SET status = 'REFUND_PENDING',
+           updated_at = now()
        WHERE id = $1
        RETURNING id, ref, status`,
       [bookingId]
@@ -201,9 +256,17 @@ export const bookingRepo = {
 
   // Set status to REFUNDED
   async setRefunded(bookingId, client) {
+    const { rows: cur } = await client.query(
+      `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`,
+      [bookingId]
+    );
+    if (cur[0]) {
+      assertTransition(cur[0].status, 'REFUNDED');
+    }
     const { rows } = await client.query(
       `UPDATE bookings
-       SET status = 'REFUNDED'
+       SET status = 'REFUNDED',
+           updated_at = now()
        WHERE id = $1 AND status = 'REFUND_PENDING'
        RETURNING id, ref, status`,
       [bookingId]
@@ -213,9 +276,11 @@ export const bookingRepo = {
 
   // Mark EXPIRED (only if still CREATED)
   async markExpired(bookingId, db = pool) {
+    assertTransition('CREATED', 'EXPIRED');
     await db.query(
       `UPDATE bookings
-       SET status = 'EXPIRED'
+       SET status = 'EXPIRED',
+           updated_at = now()
        WHERE id = $1 AND status = 'CREATED'`,
       [bookingId]
     );
@@ -223,9 +288,11 @@ export const bookingRepo = {
 
   // Mark CANCELLED (only if still CREATED)
   async markCancelled(bookingId, client) {
+    assertTransition('CREATED', 'CANCELLED');
     await client.query(
       `UPDATE bookings
-       SET status = 'CANCELLED'
+       SET status = 'CANCELLED',
+           updated_at = now()
        WHERE id = $1 AND status = 'CREATED'`,
       [bookingId]
     );

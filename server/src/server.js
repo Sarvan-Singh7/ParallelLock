@@ -7,14 +7,21 @@
  */
 import app      from './app.js';
 import { env }  from './config/env.js';
+import { sweeper } from './modules/booking/sweeper.js';
 
 const server = app.listen(env.PORT, () => {
   console.log(`🚀  ParallelLock API listening on port ${env.PORT}`);
+
+  // Start background sweeper in non-test environments
+  if (process.env.NODE_ENV !== 'test') {
+    sweeper.startSweeper();
+  }
 });
 
 // Graceful shutdown: stop accepting new connections, then exit.
 function shutdown(signal) {
   console.log(`Shutting down (${signal})...`);
+  sweeper.stopSweeper();
   server.close(() => process.exit(0));
 }
 

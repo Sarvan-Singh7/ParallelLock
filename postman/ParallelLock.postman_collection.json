@@ -450,26 +450,6 @@
 						"description": "Marks payment FAILED, reverts booking to CREATED. FAILED after SUCCEEDED is ignored."
 					},
 					"response": []
-				},
-				{
-					"name": "Retry Refund (Admin)",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/admin/retry-refund/{{bookingId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"admin",
-								"retry-refund",
-								"{{bookingId}}"
-							]
-						},
-						"description": "Re-attempts refund for a REFUND_PENDING booking. Returns { result: { status: 'REFUNDED' | 'REFUND_PENDING' } }."
-					},
-					"response": []
 				}
 			]
 		}

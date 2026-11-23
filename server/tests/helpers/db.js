@@ -72,6 +72,7 @@ export async function cleanDb() {
     TRUNCATE TABLE
       payment_events,
       payments,
+      booking_items,
       show_seats,
       bookings,
       shows,

@@ -10,6 +10,7 @@ import { errors } from '../../common/errors.js';
 import { generateBookingRef } from '../../common/ref.js';
 import { bookingRepo } from './booking.repo.js';
 import { showSeatRepo } from './showSeat.repo.js';
+import { assertTransition } from './bookingStateMachine.js';
 import { paymentService } from '../payment/payment.service.js';
 import { paymentRepo } from '../payment/payment.repo.js';
 
@@ -176,6 +177,15 @@ export const bookingService = {
       // Update show_seats to HELD using database-generated hold_expires_at
       await showSeatRepo.markHeld(showId, seatIds, booking.id, booking.hold_expires_at, client);
 
+      // Write booking_items line-item tickets in the hold transaction
+      const items = lockedSeats.map((s) => ({
+        bookingId: booking.id,
+        showId,
+        seatId: s.seat_id,
+        priceCents: s.price_cents,
+      }));
+      await bookingRepo.insertBookingItems(items, client);
+
       return booking;
     });
 
@@ -206,7 +216,11 @@ export const bookingService = {
       row = await bookingRepo.findBookingDetails(bookingId);
     }
 
-    const seats = await showSeatRepo.getSeatsForBooking(row.show_id, row.seat_ids);
+    const bookingItems = await bookingRepo.getBookingItems(row.id);
+    const seats = bookingItems.length > 0
+      ? bookingItems
+      : await showSeatRepo.getSeatsForBooking(row.show_id, row.seat_ids);
+
     return {
       booking: formatBooking(row, seats),
       serverTime: new Date().toISOString(),
@@ -393,7 +407,10 @@ export const bookingService = {
     const rows = await bookingRepo.listUserBookings(userId, 50);
     const bookings = await Promise.all(
       rows.map(async (row) => {
-        const seats = await showSeatRepo.getSeatsForBooking(row.show_id, row.seat_ids);
+        const items = await bookingRepo.getBookingItems(row.id);
+        const seats = items.length > 0
+          ? items
+          : await showSeatRepo.getSeatsForBooking(row.show_id, row.seat_ids);
         return formatBooking(row, seats);
       })
     );

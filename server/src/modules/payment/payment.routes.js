@@ -1,5 +1,5 @@
 /**
- * payment.routes.js – Webhook and admin payment routes
+ * payment.routes.js – Webhook routes (no auth required)
  */
 import { Router } from 'express';
 import { paymentController } from './payment.controller.js';
@@ -10,8 +10,3 @@ const router = Router();
 router.post('/payments', paymentController.handleWebhook);
 
 export default router;
-
-// Admin router (separate export, mounted at /api/v1/admin)
-import { Router as AdminRouter } from 'express';
-export const adminPaymentRouter = AdminRouter();
-adminPaymentRouter.post('/retry-refund/:bookingId', paymentController.retryRefund);

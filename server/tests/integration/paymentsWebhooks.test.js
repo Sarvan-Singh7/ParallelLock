@@ -20,6 +20,7 @@ import app from '../../src/app.js';
 import { setupTestDb, cleanDb, closeDb, seedTestShow, testPool } from '../helpers/db.js';
 import { mintToken } from '../helpers/tokens.js';
 import { mockStrategy } from '../../src/modules/payment/strategies/mockStrategy.js';
+import { paymentService } from '../../src/modules/payment/payment.service.js';
 import { env } from '../../src/config/env.js';
 
 /** Helper: POST a signed webhook */
@@ -255,15 +256,13 @@ describe('Payments & Webhooks Integration Tests (P2-M3)', () => {
 
     // First retry with refund failure
     process.env.MOCK_REFUND_FAIL = 'true';
-    const failRes = await request(app).post(`/api/v1/admin/retry-refund/${bookingId}`);
-    expect(failRes.status).toBe(200);
-    expect(failRes.body.result.status).toBe('REFUND_PENDING');
+    const failResult = await paymentService.retryRefund(bookingId);
+    expect(failResult.status).toBe('REFUND_PENDING');
 
     // Clear failure, retry should succeed
     delete process.env.MOCK_REFUND_FAIL;
-    const successRes = await request(app).post(`/api/v1/admin/retry-refund/${bookingId}`);
-    expect(successRes.status).toBe(200);
-    expect(successRes.body.result.status).toBe('REFUNDED');
+    const successResult = await paymentService.retryRefund(bookingId);
+    expect(successResult.status).toBe('REFUNDED');
 
     // Verify DB status
     const { rows } = await testPool.query(`SELECT status FROM bookings WHERE id=$1`, [bookingId]);
@@ -386,5 +385,96 @@ describe('Payments & Webhooks Integration Tests (P2-M3)', () => {
     // Booking must be refunded (seats were released so can't confirm)
     const { rows } = await testPool.query(`SELECT status FROM bookings WHERE id=$1`, [bookingId]);
     expect(['REFUND_PENDING', 'REFUNDED']).toContain(rows[0].status);
+  });
+
+  // ─── Test 12 ────────────────────────────────────────────────────────────────
+  it('12. 10 identical webhooks in parallel finalize exactly once', async () => {
+    const bookingId = await createHold();
+    const providerRef = `parallel_evt_${Date.now()}`;
+    await testPool.query(
+      `INSERT INTO payments (booking_id, provider, provider_ref, amount_cents, status)
+       VALUES ($1, 'MOCK', $2, 32000, 'INITIATED')`,
+      [bookingId, providerRef]
+    );
+
+    const { payload, signature } = mockStrategy.createSignedWebhookPayload({
+      eventId: `shared_evt_${Date.now()}`,
+      providerRef,
+      amountCents: 32000,
+      eventType: 'payment.succeeded',
+    });
+
+    // Send 10 identical webhook requests concurrently
+    const responses = await Promise.all(
+      Array.from({ length: 10 }, () => sendWebhook(payload, signature))
+    );
+
+    // Every response must be 200 OK
+    for (const res of responses) {
+      expect(res.status).toBe(200);
+    }
+
+    // Exactly one finalized the payment, other 9 handled as duplicate no-ops
+    const duplicates = responses.filter((r) => r.body.result?.duplicate === true);
+    const finalized = responses.filter((r) => r.body.result?.confirmed === true);
+    expect(finalized).toHaveLength(1);
+    expect(duplicates).toHaveLength(9);
+
+    // DB state: booking CONFIRMED, payment SUCCEEDED, exactly 1 payment_events row
+    const bRow = await testPool.query(`SELECT status FROM bookings WHERE id=$1`, [bookingId]);
+    expect(bRow.rows[0].status).toBe('CONFIRMED');
+
+    const pRow = await testPool.query(`SELECT status FROM payments WHERE provider_ref=$1`, [providerRef]);
+    expect(pRow.rows[0].status).toBe('SUCCEEDED');
+
+    const eRows = await testPool.query(`SELECT * FROM payment_events`);
+    expect(eRows.rows).toHaveLength(1);
+  });
+
+  // ─── Test 13 ────────────────────────────────────────────────────────────────
+  it('13. late payment success on a CANCELLED booking goes REFUND_PENDING then REFUNDED', async () => {
+    const bookingId = await createHold();
+
+    // User cancels / releases the booking
+    const relRes = await request(app)
+      .delete(`/api/v1/bookings/${bookingId}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(relRes.status).toBe(204);
+
+    // Verify booking is CANCELLED and seats are AVAILABLE
+    const cancelledRow = await testPool.query(`SELECT status FROM bookings WHERE id=$1`, [bookingId]);
+    expect(cancelledRow.rows[0].status).toBe('CANCELLED');
+
+    // Create payment row in INITIATED
+    const providerRef = `cancelled_pay_${Date.now()}`;
+    await testPool.query(
+      `INSERT INTO payments (booking_id, provider, provider_ref, amount_cents, status)
+       VALUES ($1, 'MOCK', $2, 32000, 'INITIATED')`,
+      [bookingId, providerRef]
+    );
+
+    // Gateway reports payment succeeded (e.g. late webhook or charge succeeded)
+    const { payload, signature } = mockStrategy.createSignedWebhookPayload({
+      providerRef,
+      amountCents: 32000,
+      eventType: 'payment.succeeded',
+    });
+    const whRes = await sendWebhook(payload, signature);
+    expect(whRes.status).toBe(200);
+
+    // Final outcome: booking must NOT be CONFIRMED, must be REFUNDED (via REFUND_PENDING)
+    const bFinal = await testPool.query(`SELECT status FROM bookings WHERE id=$1`, [bookingId]);
+    expect(bFinal.rows[0].status).toBe('REFUNDED');
+
+    // Payment record must be REFUNDED
+    const pFinal = await testPool.query(`SELECT status FROM payments WHERE provider_ref=$1`, [providerRef]);
+    expect(pFinal.rows[0].status).toBe('REFUNDED');
+
+    // Seats must remain AVAILABLE (never double booked)
+    const sFinal = await testPool.query(
+      `SELECT status FROM show_seats WHERE show_id=$1 AND seat_id=$2`,
+      [testData.showId, testData.seatIds[0]]
+    );
+    expect(sFinal.rows[0].status).toBe('AVAILABLE');
   });
 });
