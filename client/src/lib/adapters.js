@@ -107,11 +107,17 @@ export function adaptBooking(apiBooking, serverTime = null) {
     apiBooking.displayStatus ||
     (status === 'CONFIRMED'
       ? 'CONFIRMED'
+      : status === 'PAYMENT_PENDING'
+      ? 'PROCESSING_PAYMENT'
       : status === 'CREATED'
       ? 'ACTIVE_HOLD'
       : status);
 
-  const isHold = displayStatus === 'ACTIVE_HOLD' || status === 'CREATED';
+  const isHold =
+    displayStatus === 'ACTIVE_HOLD' ||
+    displayStatus === 'PROCESSING_PAYMENT' ||
+    status === 'CREATED' ||
+    status === 'PAYMENT_PENDING';
 
   return {
     ...apiBooking,

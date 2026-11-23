@@ -13,12 +13,25 @@ export const showSeatRepo = {
   async lockSeatsForHold(showId, seatIds, client) {
     const { rows } = await client.query(
       `SELECT
-         seat_id,
-         price_cents,
-         (status = 'AVAILABLE' OR (status = 'HELD' AND hold_expires_at <= now())) AS is_free
-       FROM show_seats
-       WHERE show_id = $1 AND seat_id = ANY($2::bigint[])
-       ORDER BY seat_id ASC
+         ss.seat_id,
+         ss.price_cents,
+         (
+           ss.status = 'AVAILABLE'
+           OR (
+             ss.status = 'HELD'
+             AND ss.hold_expires_at <= now()
+             AND NOT EXISTS (
+               SELECT 1 FROM bookings b
+               WHERE b.id = ss.booking_id
+                 AND b.status = 'PAYMENT_PENDING'
+                 AND b.payment_started_at IS NOT NULL
+                 AND b.payment_started_at > now() - interval '2 minutes'
+             )
+           )
+         ) AS is_free
+       FROM show_seats ss
+       WHERE ss.show_id = $1 AND ss.seat_id = ANY($2::bigint[])
+       ORDER BY ss.seat_id ASC
        FOR UPDATE`,
       [showId, seatIds]
     );

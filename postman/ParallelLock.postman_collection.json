@@ -285,7 +285,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["bookings", "{{bookingId}}", "pay"]
 						},
-						"description": "Confirms payment for an active hold, transitioning held seats to BOOKED status."
+						"description": "Confirms payment for an active hold. Uses a two-phase PAYMENT_PENDING state machine with payment_started_at to gate concurrent requests, extends hold by 3 minutes during payment execution, and lazily recovers stale in-flight payments after 2 minutes."
 					},
 					"response": []
 				},
@@ -309,7 +309,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["bookings", "{{bookingId}}"]
 						},
-						"description": "Releases held seats immediately back to the available seat inventory and cancels the booking."
+						"description": "Releases held seats immediately back to the available seat inventory and cancels the booking. Returns 409 INVALID_STATE if payment is actively in flight (PAYMENT_PENDING)."
 					},
 					"response": []
 				}

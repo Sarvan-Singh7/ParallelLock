@@ -15,6 +15,7 @@ function computeDisplayStatus(status, holdExpiresAt) {
   const isExpired = new Date(holdExpiresAt).getTime() <= Date.now();
   if (status === 'CONFIRMED') return 'CONFIRMED';
   if (status === 'CANCELLED') return 'CANCELLED';
+  if (status === 'PAYMENT_PENDING') return 'PROCESSING_PAYMENT';
   if (status === 'EXPIRED' || (status === 'CREATED' && isExpired)) return 'EXPIRED';
   return 'ACTIVE_HOLD';
 }
@@ -185,12 +186,20 @@ export const bookingService = {
    * Load booking details (restricted to owner).
    */
   async getBookingById({ bookingId, userId }) {
-    const row = await bookingRepo.findBookingDetails(bookingId);
+    let row = await bookingRepo.findBookingDetails(bookingId);
     if (!row) {
       throw errors.notFound('Booking not found.');
     }
     if (String(row.user_id) !== String(userId)) {
       throw errors.forbidden('You do not have permission to view this booking.');
+    }
+
+    // Lazy crash recovery for stale PAYMENT_PENDING (>2 min)
+    if (row.status === 'PAYMENT_PENDING') {
+      await withTransaction(async (client) => {
+        await bookingRepo.recoverStalePaymentPending(bookingId, client);
+      });
+      row = await bookingRepo.findBookingDetails(bookingId);
     }
 
     const seats = await showSeatRepo.getSeatsForBooking(row.show_id, row.seat_ids);
@@ -208,20 +217,27 @@ export const bookingService = {
    */
   async payBooking({ bookingId, userId, method }) {
     // 1️⃣ Quick validation – fetch booking details (read‑only)
-    const row = await bookingRepo.findBookingDetails(bookingId);
+    let row = await bookingRepo.findBookingDetails(bookingId);
     if (!row) throw errors.notFound('Booking not found.');
     if (String(row.user_id) !== String(userId))
       throw errors.forbidden('You do not have permission to pay for this booking.');
+
+    // Lazy crash recovery if stuck in PAYMENT_PENDING for over 2 minutes
+    if (row.status === 'PAYMENT_PENDING') {
+      await withTransaction(async (client) => {
+        await bookingRepo.recoverStalePaymentPending(bookingId, client);
+      });
+      row = await bookingRepo.findBookingDetails(bookingId);
+    }
 
     // 2️⃣ Idempotent re‑play handling – if already CONFIRMED return the same booking
     if (row.status === 'CONFIRMED') {
       const full = await this.getBookingById({ bookingId, userId });
       return { ...full, replayed: true };
     }
-    // If a previous request already set PAYMENT_PENDING, treat as replay as well
+    // If actively in PAYMENT_PENDING within the 2-minute window, reject concurrent pay
     if (row.status === 'PAYMENT_PENDING') {
-      const full = await this.getBookingById({ bookingId, userId });
-      return { ...full, replayed: true };
+      throw errors.invalidState('Payment is already being processed for this booking.');
     }
     // Anything else besides CREATED is an illegal state for payment
     if (row.status !== 'CREATED') {
@@ -232,17 +248,17 @@ export const bookingService = {
       throw errors.holdExpired();
     }
 
-    // 3️⃣ First transaction – lock the row and move it to PAYMENT_PENDING
+    // 3️⃣ First transaction – lock the row and move it to PAYMENT_PENDING (extends hold by 3 min)
     let pendingSet = false;
     await withTransaction(async (client) => {
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
       const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
       if (!locked) throw errors.notFound('Booking not found.');
       if (locked.status !== 'CREATED') {
-        // Another concurrent request may have raced us – abort so the caller sees a conflict
-        throw errors.invalidState(`Booking status changed to ${locked.status}`);
+        // Another concurrent request may have raced us – abort so caller sees conflict
+        throw errors.invalidState(`Booking is already ${locked.status.toLowerCase()}.`);
       }
-      // Mark as pending – this is the gate that prevents duplicate charges
+      // Mark as pending and extend hold by 3 minutes
       await bookingRepo.setPaymentPending(bookingId, client);
       pendingSet = true;
     });
@@ -271,8 +287,10 @@ export const bookingService = {
       const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
       if (!locked) throw errors.notFound('Booking not found.');
       if (locked.status !== 'PAYMENT_PENDING') {
-        // Unexpected state – treat as a conflict
-        throw errors.invalidState(`Unexpected status ${locked.status}`);
+        // TODO(P2-M3): Late payment arrived after recovery/cancellation; trigger refund path
+        throw errors.invalidState(
+          `Cannot confirm booking: expected PAYMENT_PENDING but found ${locked.status}. Refund required.`
+        );
       }
       // Mark all seats as BOOKED
       const updatedCount = await showSeatRepo.markBooked(locked.show_id, bookingId, client);
@@ -301,6 +319,9 @@ export const bookingService = {
     if (String(row.user_id) !== String(userId)) {
       throw errors.forbidden('You do not have permission to release this booking.');
     }
+    if (row.status === 'PAYMENT_PENDING') {
+      throw errors.invalidState('Cannot release booking while payment is processing.');
+    }
     if (row.status !== 'CREATED') {
       throw errors.invalidState(`Cannot release booking with status ${row.status}.`);
     }
@@ -311,6 +332,9 @@ export const bookingService = {
       const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
       if (!locked) {
         throw errors.notFound('Booking not found.');
+      }
+      if (locked.status === 'PAYMENT_PENDING') {
+        throw errors.invalidState('Cannot release booking while payment is processing.');
       }
       if (locked.status !== 'CREATED') {
         throw errors.invalidState(`Cannot release booking with status ${locked.status}.`);

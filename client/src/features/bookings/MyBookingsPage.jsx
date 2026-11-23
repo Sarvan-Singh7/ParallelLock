@@ -35,7 +35,10 @@ export function MyBookingsPage() {
 
   const now = new Date();
   const activeHolds = bookings.filter(
-    (b) => b.displayStatus === 'ACTIVE_HOLD' && b.holdExpiresAt && new Date(b.holdExpiresAt) > now
+    (b) =>
+      (b.displayStatus === 'ACTIVE_HOLD' || b.displayStatus === 'PROCESSING_PAYMENT') &&
+      b.holdExpiresAt &&
+      new Date(b.holdExpiresAt) > now
   );
   const confirmedBookings = bookings.filter((b) => b.status === 'CONFIRMED');
   const pastOrAttemptBookings = bookings.filter(
@@ -103,8 +106,12 @@ export function MyBookingsPage() {
             {activeHolds.map((b) => (
               <div key={b.id} className={styles.bookingCard} style={{ borderLeft: '4px solid #f59e0b' }}>
                 <div className={styles.cardHeader}>
-                  <span className={styles.refCode}>{b.ref} · Hold</span>
-                  <span style={{ color: '#d97706', fontWeight: 600, fontSize: '0.875rem' }}>⏱ In progress</span>
+                  <span className={styles.refCode}>{b.ref} · {b.displayStatus === 'PROCESSING_PAYMENT' ? 'Payment in flight' : 'Hold'}</span>
+                  {b.displayStatus === 'PROCESSING_PAYMENT' ? (
+                    <span style={{ color: '#2563eb', fontWeight: 600, fontSize: '0.875rem' }}>💳 Processing payment...</span>
+                  ) : (
+                    <span style={{ color: '#d97706', fontWeight: 600, fontSize: '0.875rem' }}>⏱ In progress</span>
+                  )}
                 </div>
                 <div className={styles.cardBody}>
                   <div className={styles.movieSection}>
@@ -118,7 +125,7 @@ export function MyBookingsPage() {
                       {b.seats?.map((s) => s.label).join(', ')} · ₹{(b.totalPaise / 100).toFixed(2)}
                     </span>
                     <Link to={`/checkout/${b.id}`} className={styles.viewTicketBtn}>
-                      Complete checkout →
+                      {b.displayStatus === 'PROCESSING_PAYMENT' ? 'View status →' : 'Complete checkout →'}
                     </Link>
                   </div>
                 </div>

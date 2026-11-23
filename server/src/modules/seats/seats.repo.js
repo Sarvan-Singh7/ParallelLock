@@ -64,8 +64,8 @@ export const seatsRepo = {
          CASE
            WHEN ss.seat_id IS NULL THEN 'BLOCKED'
            WHEN ss.status = 'AVAILABLE' THEN 'AVAILABLE'
-           WHEN ss.status = 'HELD' AND ss.hold_expires_at <= now() THEN 'AVAILABLE'
-           WHEN ss.status = 'HELD' AND $3::bigint IS NOT NULL AND b.user_id = $3::bigint AND ss.hold_expires_at > now() THEN 'MINE'
+           WHEN ss.status = 'HELD' AND ss.hold_expires_at <= now() AND (b.status IS DISTINCT FROM 'PAYMENT_PENDING' OR b.payment_started_at <= now() - interval '2 minutes') THEN 'AVAILABLE'
+           WHEN ss.status = 'HELD' AND $3::bigint IS NOT NULL AND b.user_id = $3::bigint AND (ss.hold_expires_at > now() OR (b.status = 'PAYMENT_PENDING' AND b.payment_started_at > now() - interval '2 minutes')) THEN 'MINE'
            WHEN ss.status = 'HELD' OR ss.status = 'BOOKED' THEN 'UNAVAILABLE'
            ELSE 'BLOCKED'
          END AS status
@@ -80,17 +80,20 @@ export const seatsRepo = {
   },
 
   /**
-   * Check if caller has an active (non-expired) CREATED booking for this show.
+   * Check if caller has an active (non-expired) CREATED or PAYMENT_PENDING booking for this show.
    */
   async findActiveUserHold(showId, userId, db = pool) {
     if (!userId) return null;
     const { rows } = await db.query(
-      `SELECT id, hold_expires_at
+      `SELECT id, hold_expires_at, status
        FROM bookings
        WHERE show_id = $1
          AND user_id = $2
-         AND status = 'CREATED'
-         AND hold_expires_at > now()
+         AND status IN ('CREATED', 'PAYMENT_PENDING')
+         AND (
+           (status = 'CREATED' AND hold_expires_at > now())
+           OR (status = 'PAYMENT_PENDING' AND payment_started_at > now() - interval '2 minutes')
+         )
        LIMIT 1`,
       [showId, BigInt(userId)]
     );

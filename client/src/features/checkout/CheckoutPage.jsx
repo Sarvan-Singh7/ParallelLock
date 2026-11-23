@@ -93,6 +93,10 @@ export function CheckoutPage() {
 
   // Handle Release Hold
   const handleRelease = async () => {
+    if (booking?.displayStatus === 'PROCESSING_PAYMENT' || booking?.status === 'PAYMENT_PENDING') {
+      setError('Payment is currently processing. Your reservation cannot be cancelled right now.');
+      return;
+    }
     try {
       await api.delete(`/bookings/${bookingId}`);
       navigate('/');
@@ -239,20 +243,28 @@ export function CheckoutPage() {
               </p>
             </div>
 
+            {booking?.displayStatus === 'PROCESSING_PAYMENT' && (
+              <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', color: '#1e40af' }}>
+                <strong>Payment In Progress:</strong> We are securing your booking with the payment provider. Please do not refresh.
+              </div>
+            )}
+
             <button
               type="button"
               className={styles.payBtn}
               onClick={handlePayment}
               disabled={isPaying || remainingSeconds <= 0 || booking?.displayStatus !== 'ACTIVE_HOLD'}
             >
-              {isPaying ? 'Confirming booking...' : `Pay ₹${totalInRupees} · Demo`}
+              {isPaying || booking?.displayStatus === 'PROCESSING_PAYMENT'
+                ? 'Processing payment...'
+                : `Pay ₹${totalInRupees} · Demo`}
             </button>
 
             <button
               type="button"
               className={styles.releaseBtn}
               onClick={handleRelease}
-              disabled={isPaying}
+              disabled={isPaying || booking?.displayStatus === 'PROCESSING_PAYMENT'}
             >
               Cancel and release hold
             </button>
