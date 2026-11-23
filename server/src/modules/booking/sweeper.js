@@ -129,14 +129,16 @@ export const sweeper = {
         throw err;
       }
 
-      // ── (c) Retry REFUND_PENDING older than 1 minute ─────────────────────
+      // ── (c) Retry REFUND_PENDING older than 1 minute (max 5 attempts) ───
       const { rows: pendingRefunds } = await client.query(
-        `SELECT id
+        `SELECT id, refund_attempts
          FROM bookings
          WHERE status = 'REFUND_PENDING'
            AND updated_at < now() - interval '1 minute'
+           AND refund_attempts < $1
          ORDER BY id
-         LIMIT 200`
+         LIMIT 200`,
+        [MAX_REFUND_RETRIES]
       );
 
       for (const b of pendingRefunds) {
@@ -145,9 +147,33 @@ export const sweeper = {
           const res = await paymentService.retryRefund(b.id);
           if (res?.status === 'REFUNDED') {
             stats.retriedRefunds++;
+          } else {
+            // Failed retry returned non-REFUNDED status -> record attempt
+            const { rows: updated } = await client.query(
+              `UPDATE bookings
+               SET refund_attempts = refund_attempts + 1, updated_at = now()
+               WHERE id = $1
+               RETURNING refund_attempts`,
+              [b.id]
+            );
+            const attempts = updated[0]?.refund_attempts;
+            if (attempts >= MAX_REFUND_RETRIES) {
+              console.warn(`[Sweeper] Max refund attempts (${MAX_REFUND_RETRIES}) reached for booking ${b.id}. Stopping retries; manual intervention required.`);
+            }
           }
         } catch (err) {
-          // If refund still fails, booking stays REFUND_PENDING for next sweep
+          // If refund call throws error, record attempt
+          const { rows: updated } = await client.query(
+            `UPDATE bookings
+             SET refund_attempts = refund_attempts + 1, updated_at = now()
+             WHERE id = $1
+             RETURNING refund_attempts`,
+            [b.id]
+          );
+          const attempts = updated[0]?.refund_attempts;
+          if (attempts >= MAX_REFUND_RETRIES) {
+            console.warn(`[Sweeper] Max refund attempts (${MAX_REFUND_RETRIES}) reached for booking ${b.id}. Stopping retries; manual intervention required.`);
+          }
         }
       }
 

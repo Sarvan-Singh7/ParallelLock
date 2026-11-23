@@ -116,7 +116,7 @@ export const bookingRepo = {
   async lockBookingForUpdate(bookingId, client) {
     const { rows } = await client.query(
       `SELECT id, ref, user_id, show_id, status, seat_ids, total_cents,
-              hold_expires_at, paid_at, payment_started_at,
+              hold_expires_at, paid_at, payment_started_at, refund_attempts,
               (hold_expires_at <= now()) AS is_expired
        FROM bookings
        WHERE id = $1

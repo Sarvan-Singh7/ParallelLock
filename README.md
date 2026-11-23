@@ -32,6 +32,7 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **Payment State Machine (`PAYMENT_PENDING`)** | **Built** | Two-phase commit with `payment_started_at`, 2-min lazy crash recovery, hold extension, and duplicate charge gating |
 | **Payments, Webhooks & Refunds (P2-M3)** | **Built** | Three-phase payment (Phase A tx → Phase B external → Phase C tx), `payments` + `payment_events` tables, HMAC-SHA256 webhook verification, deduplication-in-one-tx, two-phase refund, `retryRefund`, `MOCK_PAYMENT_MODE=sync\|async`, `REFUND_PENDING`/`REFUNDED` states |
 | **State Machine, Sweeper & Invariants (P2-M4)** | **Built** | Explicit transition graph `assertTransition`, `booking_items` line-item ledger, background advisory-locked sweeper (`pg_try_advisory_lock` with `SKIP LOCKED`), automated invariant verification (`npm run check:invariants`) |
+| **Verification & Fault Tolerance (V0)** | **Built** | Dedicated client advisory lock lifecycle (zero pool lock leakage), process shutdown cleanup (`SIGTERM`/`SIGINT`), bounded refund retries (`refund_attempts` max 5) |
 | **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
 | **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
 

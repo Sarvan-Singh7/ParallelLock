@@ -13,7 +13,7 @@
  *    - checkInvariants() reports 0 violations across all 3 consistency queries.
  *    - Invariants stay at zero after booking, payment, and release operations.
  */
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDb, cleanDb, closeDb, seedTestShow, testPool } from '../helpers/db.js';
@@ -21,6 +21,7 @@ import { mintToken } from '../helpers/tokens.js';
 import { assertTransition, ALLOWED_TRANSITIONS } from '../../src/modules/booking/bookingStateMachine.js';
 import { sweeper, SWEEPER_ADVISORY_LOCK_ID } from '../../src/modules/booking/sweeper.js';
 import { checkInvariants } from '../../scripts/checkInvariants.js';
+import { paymentService } from '../../src/modules/payment/payment.service.js';
 
 describe('Milestone P2-M4: State Machine, Sweeper, Invariants', () => {
   let testData;
@@ -106,6 +107,89 @@ describe('Milestone P2-M4: State Machine, Sweeper, Invariants', () => {
       // After lock is released, sweeper runs normally
       const nextRun = await sweeper.runOnce(testPool);
       expect(nextRun.ran).toBe(true);
+    });
+
+    it('two parallel runOnce() calls run the body only once', async () => {
+      // Seed a stale CREATED booking so the winning sweeper does real work
+      const holdRes = await request(app)
+        .post(`/api/v1/shows/${testData.showId}/holds`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ seatIds: [testData.seatIds[0]] });
+      const bookingId = holdRes.body.booking.id;
+
+      await testPool.query(
+        `UPDATE bookings SET hold_expires_at = now() - interval '5 seconds' WHERE id = $1`,
+        [bookingId]
+      );
+
+      // Trigger two runOnce() calls in parallel
+      const [res1, res2] = await Promise.all([
+        sweeper.runOnce(testPool),
+        sweeper.runOnce(testPool),
+      ]);
+
+      const runs = [res1, res2];
+      const winners = runs.filter((r) => r.ran === true);
+      const lockedOut = runs.filter((r) => r.ran === false && r.reason === 'LOCKED');
+
+      expect(winners).toHaveLength(1);
+      expect(lockedOut).toHaveLength(1);
+      expect(winners[0].stats.expiredHolds).toBe(1);
+    });
+
+    it('REFUND_PENDING retries are limited (refund_attempts max 5) and then stop retrying with log', async () => {
+      // Create a booking in REFUND_PENDING with refund_attempts = 4, updated 2 min ago
+      const holdRes = await request(app)
+        .post(`/api/v1/shows/${testData.showId}/holds`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ seatIds: [testData.seatIds[0]] });
+      const bookingId = holdRes.body.booking.id;
+
+      await testPool.query(`
+        INSERT INTO payments (booking_id, amount_cents, status, provider, provider_ref)
+        VALUES ($1, 32000, 'FAILED', 'MOCK', 'mock_ref_retry_test')
+      `, [bookingId]);
+
+      await testPool.query(`
+        UPDATE bookings
+        SET status = 'REFUND_PENDING',
+            updated_at = now() - interval '2 minutes',
+            refund_attempts = 4
+        WHERE id = $1
+      `, [bookingId]);
+
+      // Mock paymentService.retryRefund to simulate retry failure
+      const retrySpy = vi.spyOn(paymentService, 'retryRefund').mockRejectedValue(new Error('Gateway down'));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      try {
+        // Run sweeper: 5th attempt executes and fails
+        const sweep1 = await sweeper.runOnce(testPool);
+        expect(sweep1.ran).toBe(true);
+        expect(retrySpy).toHaveBeenCalledTimes(1);
+
+        // refund_attempts must now be 5
+        const bRow = await testPool.query('SELECT refund_attempts FROM bookings WHERE id = $1', [bookingId]);
+        expect(bRow.rows[0].refund_attempts).toBe(5);
+
+        // Console warning must be logged indicating max attempts reached
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Max refund attempts (5) reached for booking')
+        );
+
+        // Reset spy call count and run sweeper again (even after time passes)
+        retrySpy.mockClear();
+        await testPool.query(`UPDATE bookings SET updated_at = now() - interval '2 minutes' WHERE id = $1`, [bookingId]);
+
+        const sweep2 = await sweeper.runOnce(testPool);
+        expect(sweep2.ran).toBe(true);
+
+        // Must NOT attempt refund anymore because refund_attempts >= 5
+        expect(retrySpy).not.toHaveBeenCalled();
+      } finally {
+        retrySpy.mockRestore();
+        warnSpy.mockRestore();
+      }
     });
 
     it('sweeper skips live PAYMENT_PENDING bookings (within 2-minute window)', async () => {
