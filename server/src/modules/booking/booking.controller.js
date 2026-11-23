@@ -60,6 +60,9 @@ export const bookingController = {
       if (result.replayed) {
         res.setHeader('Idempotency-Replayed', 'true');
       }
+      if (result.async) {
+        return res.status(202).json(result);
+      }
       res.status(200).json(result);
     } catch (err) {
       next(err);

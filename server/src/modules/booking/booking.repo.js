@@ -174,14 +174,38 @@ export const bookingRepo = {
     return row;
   },
 
-  // Confirm booking (requires PAYMENT_PENDING)
+  // Confirm booking (accepts CREATED, PAYMENT_PENDING, or EXPIRED if seats still held)
   async confirmBooking(bookingId, client) {
     const { rows } = await client.query(
       `UPDATE bookings
        SET status = 'CONFIRMED',
            paid_at = now()
-       WHERE id = $1 AND status = 'PAYMENT_PENDING'
+       WHERE id = $1 AND status IN ('CREATED', 'PAYMENT_PENDING', 'EXPIRED')
        RETURNING id, ref, status, paid_at`,
+      [bookingId]
+    );
+    return rows[0];
+  },
+
+  // Set status to REFUND_PENDING
+  async setRefundPending(bookingId, client) {
+    const { rows } = await client.query(
+      `UPDATE bookings
+       SET status = 'REFUND_PENDING'
+       WHERE id = $1
+       RETURNING id, ref, status`,
+      [bookingId]
+    );
+    return rows[0];
+  },
+
+  // Set status to REFUNDED
+  async setRefunded(bookingId, client) {
+    const { rows } = await client.query(
+      `UPDATE bookings
+       SET status = 'REFUNDED'
+       WHERE id = $1 AND status = 'REFUND_PENDING'
+       RETURNING id, ref, status`,
       [bookingId]
     );
     return rows[0];

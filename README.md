@@ -30,6 +30,7 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **React Interactive Booking Client** | **Built** | Movie catalog, auditorium layout, seat selection, 8-min countdown, checkout & tickets |
 | **Idempotency Keys (`Idempotency-Key`)** | **Built** | Prevents duplicate holds on retry; returns `200` with `Idempotency-Replayed: true` |
 | **Payment State Machine (`PAYMENT_PENDING`)** | **Built** | Two-phase commit with `payment_started_at`, 2-min lazy crash recovery, hold extension, and duplicate charge gating |
+| **Payments, Webhooks & Refunds (P2-M3)** | **Built** | Three-phase payment (Phase A tx → Phase B external → Phase C tx), `payments` + `payment_events` tables, HMAC-SHA256 webhook verification, deduplication-in-one-tx, two-phase refund, `retryRefund`, `MOCK_PAYMENT_MODE=sync\|async`, `REFUND_PENDING`/`REFUNDED` states |
 | **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
 | **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
 
@@ -65,6 +66,8 @@ JWT_SECRET=super_secret_development_key_minimum_32_characters_long_12345
 PORT=4000
 CLIENT_ORIGIN=http://localhost:5173
 HOLD_SECONDS=480
+WEBHOOK_SECRET=at_least_16_chars_random_string
+MOCK_PAYMENT_MODE=sync
 ```
 
 ### 3. Run Migrations & Seed the Database

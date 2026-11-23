@@ -70,6 +70,8 @@ export async function setupTestDb() {
 export async function cleanDb() {
   await testPool.query(`
     TRUNCATE TABLE
+      payment_events,
+      payments,
       show_seats,
       bookings,
       shows,

@@ -343,6 +343,135 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "5. Payments & Webhooks (P2-M3)",
+			"item": [
+				{
+					"name": "Pay Booking (sync)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"method\": \"MOCK\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/bookings/{{bookingId}}/pay",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"bookings",
+								"{{bookingId}}",
+								"pay"
+							]
+						},
+						"description": "Three-phase payment. Returns booking + payment.providerRef. Status 200 (sync confirmed) or 202 (async PAYMENT_PENDING, waiting for webhook)."
+					},
+					"response": []
+				},
+				{
+					"name": "Webhook – Payment Succeeded",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-signature",
+								"value": "REPLACE_WITH_HMAC_SHA256_HEX",
+								"description": "HMAC-SHA256 of raw body with WEBHOOK_SECRET"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"evt_test_001\",\n  \"event\": \"payment.succeeded\",\n  \"data\": {\n    \"provider_ref\": \"REPLACE_WITH_PROVIDER_REF\",\n    \"provider_payment_id\": \"pay_test_001\",\n    \"amount_cents\": 32000,\n    \"currency\": \"INR\"\n  },\n  \"created_at\": \"2026-11-23T10:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/webhooks/payments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks",
+								"payments"
+							]
+						},
+						"description": "Receives payment result. x-signature must be HMAC-SHA256(raw body, WEBHOOK_SECRET) in hex. Deduped by event id. Runs same finalize logic as sync pay."
+					},
+					"response": []
+				},
+				{
+					"name": "Webhook – Payment Failed",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "x-signature",
+								"value": "REPLACE_WITH_HMAC_SHA256_HEX"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"evt_test_fail_001\",\n  \"event\": \"payment.failed\",\n  \"data\": {\n    \"provider_ref\": \"REPLACE_WITH_PROVIDER_REF\",\n    \"amount_cents\": 32000,\n    \"currency\": \"INR\"\n  },\n  \"created_at\": \"2026-11-23T10:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/webhooks/payments",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"webhooks",
+								"payments"
+							]
+						},
+						"description": "Marks payment FAILED, reverts booking to CREATED. FAILED after SUCCEEDED is ignored."
+					},
+					"response": []
+				},
+				{
+					"name": "Retry Refund (Admin)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/admin/retry-refund/{{bookingId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"admin",
+								"retry-refund",
+								"{{bookingId}}"
+							]
+						},
+						"description": "Re-attempts refund for a REFUND_PENDING booking. Returns { result: { status: 'REFUNDED' | 'REFUND_PENDING' } }."
+					},
+					"response": []
+				}
+			]
 		}
 	]
 }

@@ -3,6 +3,7 @@
  *
  * Implements strict row-locking guarantees inside isolated transactions.
  */
+import crypto from 'node:crypto';
 import { withTransaction } from '../../db/tx.js';
 import { env } from '../../config/env.js';
 import { errors } from '../../common/errors.js';
@@ -10,12 +11,15 @@ import { generateBookingRef } from '../../common/ref.js';
 import { bookingRepo } from './booking.repo.js';
 import { showSeatRepo } from './showSeat.repo.js';
 import { paymentService } from '../payment/payment.service.js';
+import { paymentRepo } from '../payment/payment.repo.js';
 
 function computeDisplayStatus(status, holdExpiresAt) {
   const isExpired = new Date(holdExpiresAt).getTime() <= Date.now();
   if (status === 'CONFIRMED') return 'CONFIRMED';
   if (status === 'CANCELLED') return 'CANCELLED';
   if (status === 'PAYMENT_PENDING') return 'PROCESSING_PAYMENT';
+  if (status === 'REFUND_PENDING') return 'REFUND_PENDING';
+  if (status === 'REFUNDED') return 'REFUNDED';
   if (status === 'EXPIRED' || (status === 'CREATED' && isExpired)) return 'EXPIRED';
   return 'ACTIVE_HOLD';
 }
@@ -248,7 +252,8 @@ export const bookingService = {
       throw errors.holdExpired();
     }
 
-    // 3️⃣ First transaction – lock the row and move it to PAYMENT_PENDING (extends hold by 3 min)
+    // 3️⃣ Phase A (short transaction) – lock row, move to PAYMENT_PENDING, insert payment INITIATED
+    const providerRef = crypto.randomUUID();
     let pendingSet = false;
     await withTransaction(async (client) => {
       await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
@@ -261,48 +266,79 @@ export const bookingService = {
       // Mark as pending and extend hold by 3 minutes
       await bookingRepo.setPaymentPending(bookingId, client);
       pendingSet = true;
+
+      // Insert payment ledger entry in status INITIATED
+      await paymentRepo.createPayment(
+        {
+          bookingId,
+          provider: method,
+          providerRef,
+          amountCents: Number(locked.total_cents),
+          status: 'INITIATED',
+        },
+        client
+      );
     });
 
-    // 4️⃣ External payment – runs outside any DB transaction so we don't hold locks
+    // 4️⃣ Phase B (outside transaction) – call external payment gateway strategy
+    let payResult;
     try {
-      await paymentService.processPayment({
+      payResult = await paymentService.processPayment({
         method,
         bookingId,
         totalCents: Number(row.total_cents),
+        providerRef,
       });
     } catch (err) {
-      // If payment fails we roll back the pending flag so the client can retry
+      // If payment fails: mark payment FAILED, roll back pending flag so client can retry
       if (pendingSet) {
         await withTransaction(async (client) => {
           await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
+          const p = await paymentRepo.findPaymentByProviderRef(providerRef, client);
+          if (p) {
+            await paymentRepo.updatePaymentStatus(p.id, 'FAILED', null, client);
+          }
           await bookingRepo.revertPaymentPending(bookingId, client);
         });
       }
-      throw err; // let the outer error handler return 500 / appropriate code
+      // Re-throw original error so AppError maps to its own status code
+      throw err;
     }
 
-    // 5️⃣ Final transaction – lock row again, mark seats BOOKED, confirm booking
-    await withTransaction(async (client) => {
-      await client.query("SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';");
-      const locked = await bookingRepo.lockBookingForUpdate(bookingId, client);
-      if (!locked) throw errors.notFound('Booking not found.');
-      if (locked.status !== 'PAYMENT_PENDING') {
-        // TODO(P2-M3): Late payment arrived after recovery/cancellation; trigger refund path
-        throw errors.invalidState(
-          `Cannot confirm booking: expected PAYMENT_PENDING but found ${locked.status}. Refund required.`
-        );
-      }
-      // Mark all seats as BOOKED
-      const updatedCount = await showSeatRepo.markBooked(locked.show_id, bookingId, client);
-      if (updatedCount !== locked.seat_ids.length) {
-        throw errors.invalidState('Failed to secure all held seats during payment finalization.');
-      }
-      // Finally confirm the booking (sets CONFIRMED and paid_at)
-      await bookingRepo.confirmBooking(bookingId, client);
+    // In async mode: return 202 accepted with PAYMENT_PENDING
+    if (payResult && payResult.async) {
+      const full = await this.getBookingById({ bookingId, userId });
+      return {
+        ...full,
+        async: true,
+        payment: {
+          providerRef,
+          amountCents: Number(row.total_cents),
+          providerPaymentId: payResult.providerPaymentId || null,
+        },
+      };
+    }
+
+    // 5️⃣ Phase C (finalize transaction) – Atomic seat confirmation or automated refund
+    await paymentService.finalizePayment({
+      providerRef,
+      providerPaymentId: payResult.providerPaymentId || null,
+      amountCents: Number(row.total_cents),
+      currency: 'INR',
+      isSuccess: true,
     });
 
     const full = await this.getBookingById({ bookingId, userId });
-    return { ...full, replayed: false };
+    // Return booking details plus payment info for tests
+    return {
+      ...full,
+      payment: {
+        providerRef,
+        amountCents: Number(row.total_cents),
+        providerPaymentId: payResult.providerPaymentId || null,
+      },
+      replayed: false,
+    };
   },
 
 

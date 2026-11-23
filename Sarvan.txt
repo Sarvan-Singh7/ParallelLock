@@ -1,9 +1,405 @@
 ================================================================================
+
+--------------------------------------------------------------------------------
+5. MILESTONE P2-M3: PAYMENTS, WEBHOOKS & LATE PAYMENT (COMPLETE)
+--------------------------------------------------------------------------------
+
+WHAT WAS BUILT:
+  - Three-phase payment execution (atomic, race-safe, never double-charges)
+  - Webhook ingestion with HMAC-SHA256 signature verification
+  - Duplicate webhook deduplication in a single DB transaction
+  - Full refund path with two-phase commit and retry support
+  - 11 new tests (49 total, all passing)
+
+[A] DATABASE MIGRATION: 005_payments_and_webhooks.sql
+  New tables:
+    payments(id, booking_id, provider, provider_ref UNIQUE, provider_payment_id,
+             amount_cents, status [INITIATED|SUCCEEDED|FAILED|REFUNDED], created_at, updated_at)
+    payment_events(provider_event_id PK, payload jsonb, received_at)
+  Bookings status extended: added REFUND_PENDING, REFUNDED to the CHECK constraint.
+  WHY: We need a ledger (payments) so we can track charges and refunds against
+       each booking, and a dedupe table (payment_events) so if a webhook fires
+       twice we process it exactly once.
+
+[B] THREE-PHASE PAYMENT (booking.service.js → payBooking)
+  Phase A (SHORT TRANSACTION):
+    - Lock the booking row (FOR UPDATE)
+    - Require status = CREATED (concurrent duplicate requests fail fast)
+    - Set status = PAYMENT_PENDING, extend hold by 3 min
+    - Insert a payments row with status = INITIATED and a generated UUID as provider_ref
+  Phase B (OUTSIDE TRANSACTION):
+    - Call the payment gateway strategy (mockStrategy.processPayment)
+    - If it throws → mark payment FAILED, revert booking to CREATED (safe retry)
+  Phase C (FINALIZE TRANSACTION):
+    - Lock booking row → lock payments row → lock show_seats (strict order: no deadlocks)
+    - markBooked on show_seats WHERE booking_id = this booking AND status = 'HELD'
+    - Row count must equal seat count → CONFIRMED
+    - Otherwise (seats released/stolen) → REFUND_PENDING → trigger refund
+  WHY THREE PHASES: Payment gateway calls can take 1-10 seconds. We MUST NOT hold a
+  DB lock while calling an external API (network call inside transaction = deadlock risk
+  + connection pool exhaustion). Phase A is a short 50ms transaction. Phase B is the
+  slow call. Phase C is another short transaction.
+
+[C] PROVIDER_REF (UUID as internal reference)
+  - A crypto.randomUUID() is generated in Phase A as the provider_ref.
+  - This UUID is passed to the gateway AND stored in payments.provider_ref.
+  - WHY: Gives us a stable identifier to link the payment record to a webhook event
+    even before the provider generates their own ID.
+
+[D] WEBHOOK INGESTION (payment.controller.js + payment.service.js)
+  Route: POST /api/v1/webhooks/payments
+  - Mounted with express.raw({ type: 'application/json' }) BEFORE express.json()
+    so the raw byte buffer is preserved for HMAC computation.
+  - Verifies HMAC-SHA256 signature with crypto.timingSafeEqual (length-safe).
+  - WEBHOOK_SECRET required in env.js (min 16 chars), never logged.
+  - Deduplication + finalize in ONE transaction:
+    INSERT INTO payment_events ON CONFLICT DO NOTHING → if conflict, return 200 no-op.
+    If no conflict, run the same finalizePayment logic.
+    WHY ONE TX: If finalize fails, the event row rolls back so the provider can retry.
+  - Lock order everywhere: booking → payments → show_seats (prevents deadlocks).
+
+[E] VALIDATIONS IN WEBHOOK
+  - Look payment up by provider_ref (don't trust payload amounts blindly).
+  - Amount mismatch → 422, no state change.
+  - Unknown provider_ref → 200 ignored.
+  - Valid state transitions only: INITIATED→SUCCEEDED/FAILED, SUCCEEDED→REFUNDED.
+  - Late FAILED event after SUCCEEDED → ignored (never downgrade a confirmed payment).
+
+[F] REFUND PATH (two-phase commit)
+  Phase 1 (transaction): Set booking REFUND_PENDING.
+  External call: Call provider refund (after commit, so DB lock is released).
+  Phase 2 (transaction): Set booking REFUNDED + payment REFUNDED.
+  If refund call fails → booking stays REFUND_PENDING (no data loss, retryable).
+  retryRefund(bookingId): Admin/sweeper can retry stuck REFUND_PENDING bookings.
+  WHY: We can't put the external refund call inside a DB transaction (same reason
+  as payment: external network + DB lock = disaster). Two-phase commit keeps DB
+  consistent even if the refund provider is temporarily down.
+
+[G] ADMIN ENDPOINT: POST /api/v1/admin/retry-refund/:bookingId
+  Calls paymentService.retryRefund(bookingId).
+  Looks up the latest payment row for the booking, re-runs executeRefund.
+  Returns 200 with { status: 'REFUNDED' } or { status: 'REFUND_PENDING' } if fails.
+
+[H] MOCK GATEWAY IMPROVEMENTS (mockStrategy.js)
+  - getChargeCount() / resetChargeCount(): Test-friendly counters.
+  - getRefundCount() / resetRefundCount(): Same for refunds.
+  - processPayment: Supports MOCK_PAYMENT_MODE=sync|async.
+    sync: Returns success immediately.
+    async: Returns { async: true } so payBooking returns 202 and waits for webhook.
+  - createSignedWebhookPayload: Helper to build correctly signed webhook JSON for tests.
+  - MOCK_PAYMENT_FAIL=true: Simulates gateway rejection (booking reverts to CREATED).
+  - MOCK_REFUND_FAIL=true: Simulates refund failure (booking stays REFUND_PENDING).
+
+[I] CLIENT UPDATES
+  - adapters.js: REFUND_PENDING → 'REFUND_PENDING', REFUNDED → 'REFUNDED'
+  - CheckoutPage.jsx: Shows "Refund in progress" and "Payment refunded" states.
+  - MyBookingsPage.jsx: REFUND_PENDING and REFUNDED appear in past bookings.
+
+[J] NEW TESTS (paymentsWebhooks.test.js — 11 tests)
+  1. Duplicate webhook processed once (ON CONFLICT DO NOTHING deduplication)
+  2. Bad or missing signature → 400
+  3. Webhook arrives before sync response (async mode) → CONFIRMED
+  4. Late payment with seats untouched → CONFIRMED
+  5. Late payment with seats taken by another user → REFUND_PENDING/REFUNDED, no double booking
+  6. Failed refund stays REFUND_PENDING; retryRefund fixes it
+  7. Amount mismatch → 422, no state change
+  8. Unknown provider_ref → 200 ignored
+  9. FAILED event after SUCCEEDED → ignored (booking stays CONFIRMED)
+  10. Failed charge clears payment_started_at (booking reverts to CREATED)
+  11. Late success after crash recovery → refund path, never 500
+
+INTERVIEW Q&A FOR P2-M3:
+  Q: "Why not put the payment call inside the database transaction?"
+  A: "External network calls inside a DB transaction hold the row lock for the
+  entire duration of the HTTP request to the payment gateway (could be 5-10 seconds).
+  This would exhaust the DB connection pool under load and create deadlock risks.
+  We use three-phase: Phase A (fast tx to set PAYMENT_PENDING), Phase B (gateway
+  call outside any tx), Phase C (fast tx to confirm or trigger refund)."
+
+  Q: "How do you prevent a webhook from being processed twice?"
+  A: "We INSERT INTO payment_events (provider_event_id PK) ON CONFLICT DO NOTHING
+  in the SAME transaction as the finalize logic. If the event was already processed,
+  the INSERT returns 0 rows and we return 200 immediately. If the finalize step later
+  fails, the event row rolls back too, so the provider's retry will process it again."
+
+  Q: "What happens if a customer's card is charged but the server crashes before
+  confirming the booking?"
+  A: "The booking is in PAYMENT_PENDING with a payment row in INITIATED. When the
+  webhook arrives (or when crash recovery runs lazily on next read), finalizePayment
+  checks if the seats are still HELD by this booking. If yes → CONFIRMED. If the
+  seats were released during the crash → REFUND_PENDING → we call the provider refund
+  and mark REFUNDED. Money always goes back; seats are never double-booked."
+
+================================================================================
 PARALLELLOCK - SARVAN'S PERSONAL SYSTEM ARCHITECTURE & MASTER WORK LOG
+================================================================================
+
+--------------------------------------------------------------------------------
+5. MILESTONE P2-M3: PAYMENTS, WEBHOOKS & LATE PAYMENT (COMPLETE)
+--------------------------------------------------------------------------------
+
+WHAT WAS BUILT:
+  - Three-phase payment execution (atomic, race-safe, never double-charges)
+  - Webhook ingestion with HMAC-SHA256 signature verification
+  - Duplicate webhook deduplication in a single DB transaction
+  - Full refund path with two-phase commit and retry support
+  - 11 new tests (49 total, all passing)
+
+[A] DATABASE MIGRATION: 005_payments_and_webhooks.sql
+  New tables:
+    payments(id, booking_id, provider, provider_ref UNIQUE, provider_payment_id,
+             amount_cents, status [INITIATED|SUCCEEDED|FAILED|REFUNDED], created_at, updated_at)
+    payment_events(provider_event_id PK, payload jsonb, received_at)
+  Bookings status extended: added REFUND_PENDING, REFUNDED to the CHECK constraint.
+  WHY: We need a ledger (payments) so we can track charges and refunds against
+       each booking, and a dedupe table (payment_events) so if a webhook fires
+       twice we process it exactly once.
+
+[B] THREE-PHASE PAYMENT (booking.service.js → payBooking)
+  Phase A (SHORT TRANSACTION):
+    - Lock the booking row (FOR UPDATE)
+    - Require status = CREATED (concurrent duplicate requests fail fast)
+    - Set status = PAYMENT_PENDING, extend hold by 3 min
+    - Insert a payments row with status = INITIATED and a generated UUID as provider_ref
+  Phase B (OUTSIDE TRANSACTION):
+    - Call the payment gateway strategy (mockStrategy.processPayment)
+    - If it throws → mark payment FAILED, revert booking to CREATED (safe retry)
+  Phase C (FINALIZE TRANSACTION):
+    - Lock booking row → lock payments row → lock show_seats (strict order: no deadlocks)
+    - markBooked on show_seats WHERE booking_id = this booking AND status = 'HELD'
+    - Row count must equal seat count → CONFIRMED
+    - Otherwise (seats released/stolen) → REFUND_PENDING → trigger refund
+  WHY THREE PHASES: Payment gateway calls can take 1-10 seconds. We MUST NOT hold a
+  DB lock while calling an external API (network call inside transaction = deadlock risk
+  + connection pool exhaustion). Phase A is a short 50ms transaction. Phase B is the
+  slow call. Phase C is another short transaction.
+
+[C] PROVIDER_REF (UUID as internal reference)
+  - A crypto.randomUUID() is generated in Phase A as the provider_ref.
+  - This UUID is passed to the gateway AND stored in payments.provider_ref.
+  - WHY: Gives us a stable identifier to link the payment record to a webhook event
+    even before the provider generates their own ID.
+
+[D] WEBHOOK INGESTION (payment.controller.js + payment.service.js)
+  Route: POST /api/v1/webhooks/payments
+  - Mounted with express.raw({ type: 'application/json' }) BEFORE express.json()
+    so the raw byte buffer is preserved for HMAC computation.
+  - Verifies HMAC-SHA256 signature with crypto.timingSafeEqual (length-safe).
+  - WEBHOOK_SECRET required in env.js (min 16 chars), never logged.
+  - Deduplication + finalize in ONE transaction:
+    INSERT INTO payment_events ON CONFLICT DO NOTHING → if conflict, return 200 no-op.
+    If no conflict, run the same finalizePayment logic.
+    WHY ONE TX: If finalize fails, the event row rolls back so the provider can retry.
+  - Lock order everywhere: booking → payments → show_seats (prevents deadlocks).
+
+[E] VALIDATIONS IN WEBHOOK
+  - Look payment up by provider_ref (don't trust payload amounts blindly).
+  - Amount mismatch → 422, no state change.
+  - Unknown provider_ref → 200 ignored.
+  - Valid state transitions only: INITIATED→SUCCEEDED/FAILED, SUCCEEDED→REFUNDED.
+  - Late FAILED event after SUCCEEDED → ignored (never downgrade a confirmed payment).
+
+[F] REFUND PATH (two-phase commit)
+  Phase 1 (transaction): Set booking REFUND_PENDING.
+  External call: Call provider refund (after commit, so DB lock is released).
+  Phase 2 (transaction): Set booking REFUNDED + payment REFUNDED.
+  If refund call fails → booking stays REFUND_PENDING (no data loss, retryable).
+  retryRefund(bookingId): Admin/sweeper can retry stuck REFUND_PENDING bookings.
+  WHY: We can't put the external refund call inside a DB transaction (same reason
+  as payment: external network + DB lock = disaster). Two-phase commit keeps DB
+  consistent even if the refund provider is temporarily down.
+
+[G] ADMIN ENDPOINT: POST /api/v1/admin/retry-refund/:bookingId
+  Calls paymentService.retryRefund(bookingId).
+  Looks up the latest payment row for the booking, re-runs executeRefund.
+  Returns 200 with { status: 'REFUNDED' } or { status: 'REFUND_PENDING' } if fails.
+
+[H] MOCK GATEWAY IMPROVEMENTS (mockStrategy.js)
+  - getChargeCount() / resetChargeCount(): Test-friendly counters.
+  - getRefundCount() / resetRefundCount(): Same for refunds.
+  - processPayment: Supports MOCK_PAYMENT_MODE=sync|async.
+    sync: Returns success immediately.
+    async: Returns { async: true } so payBooking returns 202 and waits for webhook.
+  - createSignedWebhookPayload: Helper to build correctly signed webhook JSON for tests.
+  - MOCK_PAYMENT_FAIL=true: Simulates gateway rejection (booking reverts to CREATED).
+  - MOCK_REFUND_FAIL=true: Simulates refund failure (booking stays REFUND_PENDING).
+
+[I] CLIENT UPDATES
+  - adapters.js: REFUND_PENDING → 'REFUND_PENDING', REFUNDED → 'REFUNDED'
+  - CheckoutPage.jsx: Shows "Refund in progress" and "Payment refunded" states.
+  - MyBookingsPage.jsx: REFUND_PENDING and REFUNDED appear in past bookings.
+
+[J] NEW TESTS (paymentsWebhooks.test.js — 11 tests)
+  1. Duplicate webhook processed once (ON CONFLICT DO NOTHING deduplication)
+  2. Bad or missing signature → 400
+  3. Webhook arrives before sync response (async mode) → CONFIRMED
+  4. Late payment with seats untouched → CONFIRMED
+  5. Late payment with seats taken by another user → REFUND_PENDING/REFUNDED, no double booking
+  6. Failed refund stays REFUND_PENDING; retryRefund fixes it
+  7. Amount mismatch → 422, no state change
+  8. Unknown provider_ref → 200 ignored
+  9. FAILED event after SUCCEEDED → ignored (booking stays CONFIRMED)
+  10. Failed charge clears payment_started_at (booking reverts to CREATED)
+  11. Late success after crash recovery → refund path, never 500
+
+INTERVIEW Q&A FOR P2-M3:
+  Q: "Why not put the payment call inside the database transaction?"
+  A: "External network calls inside a DB transaction hold the row lock for the
+  entire duration of the HTTP request to the payment gateway (could be 5-10 seconds).
+  This would exhaust the DB connection pool under load and create deadlock risks.
+  We use three-phase: Phase A (fast tx to set PAYMENT_PENDING), Phase B (gateway
+  call outside any tx), Phase C (fast tx to confirm or trigger refund)."
+
+  Q: "How do you prevent a webhook from being processed twice?"
+  A: "We INSERT INTO payment_events (provider_event_id PK) ON CONFLICT DO NOTHING
+  in the SAME transaction as the finalize logic. If the event was already processed,
+  the INSERT returns 0 rows and we return 200 immediately. If the finalize step later
+  fails, the event row rolls back too, so the provider's retry will process it again."
+
+  Q: "What happens if a customer's card is charged but the server crashes before
+  confirming the booking?"
+  A: "The booking is in PAYMENT_PENDING with a payment row in INITIATED. When the
+  webhook arrives (or when crash recovery runs lazily on next read), finalizePayment
+  checks if the seats are still HELD by this booking. If yes → CONFIRMED. If the
+  seats were released during the crash → REFUND_PENDING → we call the provider refund
+  and mark REFUNDED. Money always goes back; seats are never double-booked."
+
 ================================================================================
 Project: ParallelLock High-Concurrency Movie Ticket Booking Engine
 Tech Stack: Node.js 20 (ESM), Express, PostgreSQL (pg, raw SQL), React (Vite), Vitest
 Author: Sarvan
+================================================================================
+
+--------------------------------------------------------------------------------
+5. MILESTONE P2-M3: PAYMENTS, WEBHOOKS & LATE PAYMENT (COMPLETE)
+--------------------------------------------------------------------------------
+
+WHAT WAS BUILT:
+  - Three-phase payment execution (atomic, race-safe, never double-charges)
+  - Webhook ingestion with HMAC-SHA256 signature verification
+  - Duplicate webhook deduplication in a single DB transaction
+  - Full refund path with two-phase commit and retry support
+  - 11 new tests (49 total, all passing)
+
+[A] DATABASE MIGRATION: 005_payments_and_webhooks.sql
+  New tables:
+    payments(id, booking_id, provider, provider_ref UNIQUE, provider_payment_id,
+             amount_cents, status [INITIATED|SUCCEEDED|FAILED|REFUNDED], created_at, updated_at)
+    payment_events(provider_event_id PK, payload jsonb, received_at)
+  Bookings status extended: added REFUND_PENDING, REFUNDED to the CHECK constraint.
+  WHY: We need a ledger (payments) so we can track charges and refunds against
+       each booking, and a dedupe table (payment_events) so if a webhook fires
+       twice we process it exactly once.
+
+[B] THREE-PHASE PAYMENT (booking.service.js → payBooking)
+  Phase A (SHORT TRANSACTION):
+    - Lock the booking row (FOR UPDATE)
+    - Require status = CREATED (concurrent duplicate requests fail fast)
+    - Set status = PAYMENT_PENDING, extend hold by 3 min
+    - Insert a payments row with status = INITIATED and a generated UUID as provider_ref
+  Phase B (OUTSIDE TRANSACTION):
+    - Call the payment gateway strategy (mockStrategy.processPayment)
+    - If it throws → mark payment FAILED, revert booking to CREATED (safe retry)
+  Phase C (FINALIZE TRANSACTION):
+    - Lock booking row → lock payments row → lock show_seats (strict order: no deadlocks)
+    - markBooked on show_seats WHERE booking_id = this booking AND status = 'HELD'
+    - Row count must equal seat count → CONFIRMED
+    - Otherwise (seats released/stolen) → REFUND_PENDING → trigger refund
+  WHY THREE PHASES: Payment gateway calls can take 1-10 seconds. We MUST NOT hold a
+  DB lock while calling an external API (network call inside transaction = deadlock risk
+  + connection pool exhaustion). Phase A is a short 50ms transaction. Phase B is the
+  slow call. Phase C is another short transaction.
+
+[C] PROVIDER_REF (UUID as internal reference)
+  - A crypto.randomUUID() is generated in Phase A as the provider_ref.
+  - This UUID is passed to the gateway AND stored in payments.provider_ref.
+  - WHY: Gives us a stable identifier to link the payment record to a webhook event
+    even before the provider generates their own ID.
+
+[D] WEBHOOK INGESTION (payment.controller.js + payment.service.js)
+  Route: POST /api/v1/webhooks/payments
+  - Mounted with express.raw({ type: 'application/json' }) BEFORE express.json()
+    so the raw byte buffer is preserved for HMAC computation.
+  - Verifies HMAC-SHA256 signature with crypto.timingSafeEqual (length-safe).
+  - WEBHOOK_SECRET required in env.js (min 16 chars), never logged.
+  - Deduplication + finalize in ONE transaction:
+    INSERT INTO payment_events ON CONFLICT DO NOTHING → if conflict, return 200 no-op.
+    If no conflict, run the same finalizePayment logic.
+    WHY ONE TX: If finalize fails, the event row rolls back so the provider can retry.
+  - Lock order everywhere: booking → payments → show_seats (prevents deadlocks).
+
+[E] VALIDATIONS IN WEBHOOK
+  - Look payment up by provider_ref (don't trust payload amounts blindly).
+  - Amount mismatch → 422, no state change.
+  - Unknown provider_ref → 200 ignored.
+  - Valid state transitions only: INITIATED→SUCCEEDED/FAILED, SUCCEEDED→REFUNDED.
+  - Late FAILED event after SUCCEEDED → ignored (never downgrade a confirmed payment).
+
+[F] REFUND PATH (two-phase commit)
+  Phase 1 (transaction): Set booking REFUND_PENDING.
+  External call: Call provider refund (after commit, so DB lock is released).
+  Phase 2 (transaction): Set booking REFUNDED + payment REFUNDED.
+  If refund call fails → booking stays REFUND_PENDING (no data loss, retryable).
+  retryRefund(bookingId): Admin/sweeper can retry stuck REFUND_PENDING bookings.
+  WHY: We can't put the external refund call inside a DB transaction (same reason
+  as payment: external network + DB lock = disaster). Two-phase commit keeps DB
+  consistent even if the refund provider is temporarily down.
+
+[G] ADMIN ENDPOINT: POST /api/v1/admin/retry-refund/:bookingId
+  Calls paymentService.retryRefund(bookingId).
+  Looks up the latest payment row for the booking, re-runs executeRefund.
+  Returns 200 with { status: 'REFUNDED' } or { status: 'REFUND_PENDING' } if fails.
+
+[H] MOCK GATEWAY IMPROVEMENTS (mockStrategy.js)
+  - getChargeCount() / resetChargeCount(): Test-friendly counters.
+  - getRefundCount() / resetRefundCount(): Same for refunds.
+  - processPayment: Supports MOCK_PAYMENT_MODE=sync|async.
+    sync: Returns success immediately.
+    async: Returns { async: true } so payBooking returns 202 and waits for webhook.
+  - createSignedWebhookPayload: Helper to build correctly signed webhook JSON for tests.
+  - MOCK_PAYMENT_FAIL=true: Simulates gateway rejection (booking reverts to CREATED).
+  - MOCK_REFUND_FAIL=true: Simulates refund failure (booking stays REFUND_PENDING).
+
+[I] CLIENT UPDATES
+  - adapters.js: REFUND_PENDING → 'REFUND_PENDING', REFUNDED → 'REFUNDED'
+  - CheckoutPage.jsx: Shows "Refund in progress" and "Payment refunded" states.
+  - MyBookingsPage.jsx: REFUND_PENDING and REFUNDED appear in past bookings.
+
+[J] NEW TESTS (paymentsWebhooks.test.js — 11 tests)
+  1. Duplicate webhook processed once (ON CONFLICT DO NOTHING deduplication)
+  2. Bad or missing signature → 400
+  3. Webhook arrives before sync response (async mode) → CONFIRMED
+  4. Late payment with seats untouched → CONFIRMED
+  5. Late payment with seats taken by another user → REFUND_PENDING/REFUNDED, no double booking
+  6. Failed refund stays REFUND_PENDING; retryRefund fixes it
+  7. Amount mismatch → 422, no state change
+  8. Unknown provider_ref → 200 ignored
+  9. FAILED event after SUCCEEDED → ignored (booking stays CONFIRMED)
+  10. Failed charge clears payment_started_at (booking reverts to CREATED)
+  11. Late success after crash recovery → refund path, never 500
+
+INTERVIEW Q&A FOR P2-M3:
+  Q: "Why not put the payment call inside the database transaction?"
+  A: "External network calls inside a DB transaction hold the row lock for the
+  entire duration of the HTTP request to the payment gateway (could be 5-10 seconds).
+  This would exhaust the DB connection pool under load and create deadlock risks.
+  We use three-phase: Phase A (fast tx to set PAYMENT_PENDING), Phase B (gateway
+  call outside any tx), Phase C (fast tx to confirm or trigger refund)."
+
+  Q: "How do you prevent a webhook from being processed twice?"
+  A: "We INSERT INTO payment_events (provider_event_id PK) ON CONFLICT DO NOTHING
+  in the SAME transaction as the finalize logic. If the event was already processed,
+  the INSERT returns 0 rows and we return 200 immediately. If the finalize step later
+  fails, the event row rolls back too, so the provider's retry will process it again."
+
+  Q: "What happens if a customer's card is charged but the server crashes before
+  confirming the booking?"
+  A: "The booking is in PAYMENT_PENDING with a payment row in INITIATED. When the
+  webhook arrives (or when crash recovery runs lazily on next read), finalizePayment
+  checks if the seats are still HELD by this booking. If yes → CONFIRMED. If the
+  seats were released during the crash → REFUND_PENDING → we call the provider refund
+  and mark REFUNDED. Money always goes back; seats are never double-booked."
+
 ================================================================================
 
 --------------------------------------------------------------------------------
@@ -154,4 +550,136 @@ server queries the row with `SELECT ... FOR UPDATE`. If status is `PAYMENT_PENDI
 and `payment_started_at` is older than 2 minutes, it checks if the hold is still valid.
 If valid, it safely reverts to `CREATED`; if expired, it marks `EXPIRED` and frees
 the seats. The recovery is completely atomic and race-safe."
+================================================================================
+
+--------------------------------------------------------------------------------
+5. MILESTONE P2-M3: PAYMENTS, WEBHOOKS & LATE PAYMENT (COMPLETE)
+--------------------------------------------------------------------------------
+
+WHAT WAS BUILT:
+  - Three-phase payment execution (atomic, race-safe, never double-charges)
+  - Webhook ingestion with HMAC-SHA256 signature verification
+  - Duplicate webhook deduplication in a single DB transaction
+  - Full refund path with two-phase commit and retry support
+  - 11 new tests (49 total, all passing)
+
+[A] DATABASE MIGRATION: 005_payments_and_webhooks.sql
+  New tables:
+    payments(id, booking_id, provider, provider_ref UNIQUE, provider_payment_id,
+             amount_cents, status [INITIATED|SUCCEEDED|FAILED|REFUNDED], created_at, updated_at)
+    payment_events(provider_event_id PK, payload jsonb, received_at)
+  Bookings status extended: added REFUND_PENDING, REFUNDED to the CHECK constraint.
+  WHY: We need a ledger (payments) so we can track charges and refunds against
+       each booking, and a dedupe table (payment_events) so if a webhook fires
+       twice we process it exactly once.
+
+[B] THREE-PHASE PAYMENT (booking.service.js → payBooking)
+  Phase A (SHORT TRANSACTION):
+    - Lock the booking row (FOR UPDATE)
+    - Require status = CREATED (concurrent duplicate requests fail fast)
+    - Set status = PAYMENT_PENDING, extend hold by 3 min
+    - Insert a payments row with status = INITIATED and a generated UUID as provider_ref
+  Phase B (OUTSIDE TRANSACTION):
+    - Call the payment gateway strategy (mockStrategy.processPayment)
+    - If it throws → mark payment FAILED, revert booking to CREATED (safe retry)
+  Phase C (FINALIZE TRANSACTION):
+    - Lock booking row → lock payments row → lock show_seats (strict order: no deadlocks)
+    - markBooked on show_seats WHERE booking_id = this booking AND status = 'HELD'
+    - Row count must equal seat count → CONFIRMED
+    - Otherwise (seats released/stolen) → REFUND_PENDING → trigger refund
+  WHY THREE PHASES: Payment gateway calls can take 1-10 seconds. We MUST NOT hold a
+  DB lock while calling an external API (network call inside transaction = deadlock risk
+  + connection pool exhaustion). Phase A is a short 50ms transaction. Phase B is the
+  slow call. Phase C is another short transaction.
+
+[C] PROVIDER_REF (UUID as internal reference)
+  - A crypto.randomUUID() is generated in Phase A as the provider_ref.
+  - This UUID is passed to the gateway AND stored in payments.provider_ref.
+  - WHY: Gives us a stable identifier to link the payment record to a webhook event
+    even before the provider generates their own ID.
+
+[D] WEBHOOK INGESTION (payment.controller.js + payment.service.js)
+  Route: POST /api/v1/webhooks/payments
+  - Mounted with express.raw({ type: 'application/json' }) BEFORE express.json()
+    so the raw byte buffer is preserved for HMAC computation.
+  - Verifies HMAC-SHA256 signature with crypto.timingSafeEqual (length-safe).
+  - WEBHOOK_SECRET required in env.js (min 16 chars), never logged.
+  - Deduplication + finalize in ONE transaction:
+    INSERT INTO payment_events ON CONFLICT DO NOTHING → if conflict, return 200 no-op.
+    If no conflict, run the same finalizePayment logic.
+    WHY ONE TX: If finalize fails, the event row rolls back so the provider can retry.
+  - Lock order everywhere: booking → payments → show_seats (prevents deadlocks).
+
+[E] VALIDATIONS IN WEBHOOK
+  - Look payment up by provider_ref (don't trust payload amounts blindly).
+  - Amount mismatch → 422, no state change.
+  - Unknown provider_ref → 200 ignored.
+  - Valid state transitions only: INITIATED→SUCCEEDED/FAILED, SUCCEEDED→REFUNDED.
+  - Late FAILED event after SUCCEEDED → ignored (never downgrade a confirmed payment).
+
+[F] REFUND PATH (two-phase commit)
+  Phase 1 (transaction): Set booking REFUND_PENDING.
+  External call: Call provider refund (after commit, so DB lock is released).
+  Phase 2 (transaction): Set booking REFUNDED + payment REFUNDED.
+  If refund call fails → booking stays REFUND_PENDING (no data loss, retryable).
+  retryRefund(bookingId): Admin/sweeper can retry stuck REFUND_PENDING bookings.
+  WHY: We can't put the external refund call inside a DB transaction (same reason
+  as payment: external network + DB lock = disaster). Two-phase commit keeps DB
+  consistent even if the refund provider is temporarily down.
+
+[G] ADMIN ENDPOINT: POST /api/v1/admin/retry-refund/:bookingId
+  Calls paymentService.retryRefund(bookingId).
+  Looks up the latest payment row for the booking, re-runs executeRefund.
+  Returns 200 with { status: 'REFUNDED' } or { status: 'REFUND_PENDING' } if fails.
+
+[H] MOCK GATEWAY IMPROVEMENTS (mockStrategy.js)
+  - getChargeCount() / resetChargeCount(): Test-friendly counters.
+  - getRefundCount() / resetRefundCount(): Same for refunds.
+  - processPayment: Supports MOCK_PAYMENT_MODE=sync|async.
+    sync: Returns success immediately.
+    async: Returns { async: true } so payBooking returns 202 and waits for webhook.
+  - createSignedWebhookPayload: Helper to build correctly signed webhook JSON for tests.
+  - MOCK_PAYMENT_FAIL=true: Simulates gateway rejection (booking reverts to CREATED).
+  - MOCK_REFUND_FAIL=true: Simulates refund failure (booking stays REFUND_PENDING).
+
+[I] CLIENT UPDATES
+  - adapters.js: REFUND_PENDING → 'REFUND_PENDING', REFUNDED → 'REFUNDED'
+  - CheckoutPage.jsx: Shows "Refund in progress" and "Payment refunded" states.
+  - MyBookingsPage.jsx: REFUND_PENDING and REFUNDED appear in past bookings.
+
+[J] NEW TESTS (paymentsWebhooks.test.js — 11 tests)
+  1. Duplicate webhook processed once (ON CONFLICT DO NOTHING deduplication)
+  2. Bad or missing signature → 400
+  3. Webhook arrives before sync response (async mode) → CONFIRMED
+  4. Late payment with seats untouched → CONFIRMED
+  5. Late payment with seats taken by another user → REFUND_PENDING/REFUNDED, no double booking
+  6. Failed refund stays REFUND_PENDING; retryRefund fixes it
+  7. Amount mismatch → 422, no state change
+  8. Unknown provider_ref → 200 ignored
+  9. FAILED event after SUCCEEDED → ignored (booking stays CONFIRMED)
+  10. Failed charge clears payment_started_at (booking reverts to CREATED)
+  11. Late success after crash recovery → refund path, never 500
+
+INTERVIEW Q&A FOR P2-M3:
+  Q: "Why not put the payment call inside the database transaction?"
+  A: "External network calls inside a DB transaction hold the row lock for the
+  entire duration of the HTTP request to the payment gateway (could be 5-10 seconds).
+  This would exhaust the DB connection pool under load and create deadlock risks.
+  We use three-phase: Phase A (fast tx to set PAYMENT_PENDING), Phase B (gateway
+  call outside any tx), Phase C (fast tx to confirm or trigger refund)."
+
+  Q: "How do you prevent a webhook from being processed twice?"
+  A: "We INSERT INTO payment_events (provider_event_id PK) ON CONFLICT DO NOTHING
+  in the SAME transaction as the finalize logic. If the event was already processed,
+  the INSERT returns 0 rows and we return 200 immediately. If the finalize step later
+  fails, the event row rolls back too, so the provider's retry will process it again."
+
+  Q: "What happens if a customer's card is charged but the server crashes before
+  confirming the booking?"
+  A: "The booking is in PAYMENT_PENDING with a payment row in INITIATED. When the
+  webhook arrives (or when crash recovery runs lazily on next read), finalizePayment
+  checks if the seats are still HELD by this booking. If yes → CONFIRMED. If the
+  seats were released during the crash → REFUND_PENDING → we call the provider refund
+  and mark REFUNDED. Money always goes back; seats are never double-booked."
+
 ================================================================================

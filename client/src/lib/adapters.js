@@ -109,6 +109,10 @@ export function adaptBooking(apiBooking, serverTime = null) {
       ? 'CONFIRMED'
       : status === 'PAYMENT_PENDING'
       ? 'PROCESSING_PAYMENT'
+      : status === 'REFUND_PENDING'
+      ? 'REFUND_PENDING'
+      : status === 'REFUNDED'
+      ? 'REFUNDED'
       : status === 'CREATED'
       ? 'ACTIVE_HOLD'
       : status);

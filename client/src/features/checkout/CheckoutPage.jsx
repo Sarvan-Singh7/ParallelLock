@@ -119,6 +119,43 @@ export function CheckoutPage() {
     return <TicketCard booking={booking} />;
   }
 
+  // If refund in progress
+  if (booking?.status === 'REFUND_PENDING' || booking?.displayStatus === 'REFUND_PENDING') {
+    return (
+      <div className={styles.expiredWrapper}>
+        <div className={styles.expiredCard} style={{ borderColor: '#f59e0b' }}>
+          <span className={styles.expiredIcon} style={{ color: '#d97706' }}>🔄</span>
+          <h2 className={styles.expiredTitle}>Refund in progress</h2>
+          <p className={styles.expiredText}>
+            Your payment was received, but the selected seats were no longer available.
+            A full refund has been initiated to your original payment method.
+          </p>
+          <Link to="/" className={styles.rebookBtn}>
+            Return to movies & select seats →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // If refunded
+  if (booking?.status === 'REFUNDED' || booking?.displayStatus === 'REFUNDED') {
+    return (
+      <div className={styles.expiredWrapper}>
+        <div className={styles.expiredCard} style={{ borderColor: '#6b7280' }}>
+          <span className={styles.expiredIcon} style={{ color: '#4b5563' }}>↩️</span>
+          <h2 className={styles.expiredTitle}>Payment refunded</h2>
+          <p className={styles.expiredText}>
+            This booking has been refunded. The seats were released and your payment was returned.
+          </p>
+          <Link to="/" className={styles.rebookBtn}>
+            Return to movies & select seats →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // If expired
   if (booking?.status === 'EXPIRED') {
     return (

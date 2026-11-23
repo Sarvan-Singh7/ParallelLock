@@ -45,6 +45,8 @@ export function MyBookingsPage() {
     (b) =>
       b.status === 'EXPIRED' ||
       b.status === 'CANCELLED' ||
+      b.status === 'REFUND_PENDING' ||
+      b.status === 'REFUNDED' ||
       (b.status === 'CREATED' && (!b.holdExpiresAt || new Date(b.holdExpiresAt) <= now))
   );
 

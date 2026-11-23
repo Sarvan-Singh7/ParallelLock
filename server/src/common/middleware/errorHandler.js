@@ -6,6 +6,7 @@ import { AppError } from '../errors.js';
  * Maps AppError instances to the canonical JSON shape:
  *   { error: { code, message, details } }
  *
+ * Also handles plain errors that have a .status field (e.g. payment gateway errors).
  * Unrecognised errors are logged with console.error and returned as 500
  * so internal details are never leaked to clients.
  */
@@ -32,6 +33,17 @@ export function errorHandler(err, _req, res, _next) {
         code:    'SERVICE_UNAVAILABLE',
         message: 'The service is temporarily busy. Please try again.',
         details: {},
+      },
+    });
+  }
+
+  // Plain error with a .status field (e.g., re-thrown payment gateway errors).
+  if (err.status && typeof err.status === 'number' && err.status >= 400 && err.status < 500) {
+    return res.status(err.status).json({
+      error: {
+        code:    err.code || 'REQUEST_ERROR',
+        message: err.message || 'Request failed.',
+        details: err.details || {},
       },
     });
   }
