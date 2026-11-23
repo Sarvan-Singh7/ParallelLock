@@ -7,3 +7,7 @@ dist/
 *.log
 .DS_Store
 coverage/
+
+# Personal notes
+Sarvan.txt
+Sarvan*
