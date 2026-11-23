@@ -1,0 +1,157 @@
+================================================================================
+PARALLELLOCK - SARVAN'S PERSONAL SYSTEM ARCHITECTURE & MASTER WORK LOG
+================================================================================
+Project: ParallelLock High-Concurrency Movie Ticket Booking Engine
+Tech Stack: Node.js 20 (ESM), Express, PostgreSQL (pg, raw SQL), React (Vite), Vitest
+Author: Sarvan
+================================================================================
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY: WHAT IS PARALLELLOCK & WHAT PROBLEM DOES IT SOLVE?
+--------------------------------------------------------------------------------
+Imagine 10,000 users trying to book the exact same front-row seat for a blockbuster
+movie at 10:00:00.000 AM.
+In naive systems:
+  - Worker 1 reads: "Seat is AVAILABLE".
+  - Worker 2 reads: "Seat is AVAILABLE".
+  - Worker 1 updates: "Seat is BOOKED by User 1".
+  - Worker 2 updates: "Seat is BOOKED by User 2" (overwrites User 1!).
+Result: Double-booking disaster (Check-Then-Act Race Condition).
+
+ParallelLock solves this entirely inside PostgreSQL using:
+1. Row-Level Locks (`SELECT ... FOR UPDATE`): Only 1 transaction gets the lock.
+2. Ascending Seat Ordering (`ORDER BY seat_id ASC`): Zero deadlocks.
+3. Fail-Fast Timeouts (`lock_timeout = 2s`): Aborts stalled locks before pool exhausts.
+4. Passive Expiration (`now()`): No cron jobs required for seat release.
+5. Idempotency Keys: Safe retries on spotty mobile connections.
+6. Multi-Phase Payment State Machine (`PAYMENT_PENDING`): Gated duplicate charges.
+
+--------------------------------------------------------------------------------
+2. ARCHITECTURE BREAKDOWN: WHY EACH PIECE WAS USED & HOW IT WORKS
+--------------------------------------------------------------------------------
+
+[A] POSTGRESQL RELATIONAL SCHEMA (Strict Normalization)
+- `users`: Stores customer accounts (Argon2id password hashing, JWT HS256 tokens).
+- `theaters` & `screens`: Physical cinema locations and auditoriums.
+- `seats`: Fixed physical seats with row, column, and tier (GOLD / SILVER).
+- `movies` & `shows`: Film catalog and scheduled showtimes.
+- `show_seats`: The INVENTORY table. Every show has a row per active seat.
+  Status: AVAILABLE -> HELD -> BOOKED.
+- `bookings`: Customer reservations and confirmed tickets.
+  Status: CREATED -> PAYMENT_PENDING -> CONFIRMED (or CANCELLED / EXPIRED).
+
+[B] DETERMINISTIC ROW-LEVEL LOCKING (`SELECT ... FOR UPDATE`)
+- File: `server/src/modules/booking/showSeat.repo.js`
+- Why: Guarantees that when multiple workers query the same seat, PostgreSQL
+  puts concurrent transactions in a queue. Exactly 1 transaction acquires the
+  lock; others wait. When the first transaction commits `status = 'HELD'`, the
+  others read the updated status and immediately fail with `409 Conflict`.
+
+[C] ASCENDING SEAT SORTING (`ORDER BY seat_id ASC`)
+- Why used: Prevents DEADLOCKS.
+  If User 1 locks Seat 10 then requests Seat 20, while User 2 locks Seat 20 then
+  requests Seat 10, both wait on each other forever (Deadlock cycle).
+  By enforcing `ORDER BY seat_id ASC`, both transactions ALWAYS request Seat 10
+  first, then Seat 20. Deadlocks are mathematically impossible.
+
+[D] FAIL-FAST CONNECTION TIMEOUTS
+- Code: `SET LOCAL lock_timeout = '2s'; SET LOCAL statement_timeout = '5s';`
+- Why used: If a transaction waits more than 2 seconds to acquire a lock, Postgres
+  cancels it and returns error `55P03`. ParallelLock catches this and responds
+  with `503 Service Unavailable` with `Retry-After: 1`. This prevents database
+  connection pool starvation during massive traffic spikes.
+
+[E] PASSIVE EXPIRATION (Zero Cron Sweeper Dependency)
+- Code: `hold_expires_at <= now()` directly in SQL queries.
+- Why used: Background cron jobs run once a minute; between cron runs, expired
+  seats stay locked. ParallelLock evaluates expiration on-the-fly against the DB
+  clock (`now()`). If User A's hold expired 1 millisecond ago, User B's query
+  instantly treats that seat as `AVAILABLE`.
+
+[F] IDEMPOTENCY KEY ENGINE (`Idempotency-Key` Header)
+- Files: `002_idempotency.sql`, `booking.service.js`
+- Why used: If a user taps "Pay" or "Hold" and their Wi-Fi drops, their phone retries.
+  A partial unique index on `(user_id, idempotency_key)` ensures the retry returns
+  the existing booking with header `Idempotency-Replayed: true` (HTTP 200) instead
+  of double-charging or creating a duplicate booking.
+
+[G] PAYMENT STATE MACHINE & CRASH RECOVERY (Milestone A0)
+- Files: `003_payment_pending.sql`, `004_payment_recovery.sql`, `booking.repo.js`
+- Why used:
+  1. Window of vulnerability: Between sending a charge to Stripe/gateway and marking
+     the booking CONFIRMED, a second concurrent click could read status = CREATED
+     and charge the customer a second time.
+  2. Solution: Inside transaction 1, flip status to `PAYMENT_PENDING`, record
+     `payment_started_at = now()`, and extend the hold by +3 minutes.
+  3. External payment runs OUTSIDE database transactions so external gateway delays
+     never hold database row locks.
+  4. Final transaction: Confirms booking ONLY if status is still `PAYMENT_PENDING`.
+  5. Lazy Crash Recovery: If a server crashes mid-payment, reading or paying the
+     booking after 2 minutes detects stale `PAYMENT_PENDING` under `FOR UPDATE`,
+     reverting to `CREATED` (if hold valid) or `EXPIRED` (if hold expired).
+  6. Unstealable Seats: While `PAYMENT_PENDING`, `lockSeatsForHold` treats seats as
+     NOT free even if the original 8-minute hold passed. User B gets `409 Conflict`.
+
+[H] REACT FRONTEND CLIENT (Milestones 1 - 7)
+- Directory: `client/src/`
+- Features:
+  - City selection & showtimes catalog.
+  - Interactive seat layout with Gold / Silver tiers and blocked aisle seats.
+  - 5-second polling hook for live seat status synchronization.
+  - Live 8-minute countdown timer synchronized with backend server clock offset.
+  - Checkout page: detects `PROCESSING_PAYMENT`, disables double-clicks, and guards
+    cancellations with friendly alerts.
+  - Printable `TicketCard` and `MyBookingsPage` user account dashboard.
+
+--------------------------------------------------------------------------------
+3. CHRONOLOGICAL WORK LOG: WHAT WAS BUILT FROM OLD WORK TILL NOW
+--------------------------------------------------------------------------------
+
+[PHASE 1] Core Engine & Concurrency Guarantees
+- Built 8 relational tables and constraints in PostgreSQL (`001_schema.sql`).
+- Implemented `createHold`, `getShowSeats`, `payBooking`, `releaseBooking`.
+- Added Argon2id password hashing and JWT authentication middleware.
+- Built concurrency test harness (500 parallel users, 300 reverse-order deadlocks).
+
+[PHASE 2 - M1] Idempotency Keys
+- Added `002_idempotency.sql` migration with unique index on `(user_id, idempotency_key)`.
+- Verified identical payload replay returns 200 with `Idempotency-Replayed: true`.
+- Verified payload variation with same key rejects with `422 IDEMPOTENCY_KEY_REUSED`.
+
+[PHASE 2 - M2 & MILESTONE A0] Payment State Machine & Crash Recovery Audit
+- Created `003_payment_pending.sql` (check constraint for `PAYMENT_PENDING`).
+- Created `004_payment_recovery.sql`: added `payment_started_at` column and updated
+  unique index `uq_bookings_active_user_show` on `(user_id, show_id) WHERE status IN ('CREATED', 'PAYMENT_PENDING')`.
+- Extended seat holds by +3 minutes upon entering `PAYMENT_PENDING`.
+- Updated `lockSeatsForHold` to protect seats from theft during payment.
+- Implemented race-safe lazy crash recovery under `SELECT ... FOR UPDATE`.
+- Added mock gateway charge counter and configurable delay (`MOCK_PAYMENT_DELAY_MS`).
+- Added client `PROCESSING_PAYMENT` adapter and UI states in `CheckoutPage` & `MyBookingsPage`.
+- Created comprehensive test suite `auditP2M2.test.js` (7 new tests).
+- All 38 tests across 9 test files pass 100% (with zero 500 errors).
+
+--------------------------------------------------------------------------------
+4. INTERVIEW DEFENSE: TOP 3 HARDEST QUESTIONS & HOW TO ANSWER
+--------------------------------------------------------------------------------
+
+Q1: "Why not just use Redis distributed locks (Redlock) for seats?"
+Ans: "Redis locks add network hops, operational complexity, and split-brain risks.
+PostgreSQL is already our source of truth. With `SELECT ... FOR UPDATE` ordered by
+seat ID and a `lock_timeout = '2s'`, we get ACID transactional guarantees, zero
+double-booking, and zero deadlocks directly in the database without any extra infra."
+
+Q2: "What happens if a payment takes 15 seconds and the 8-minute hold expires?"
+Ans: "When the user initiates payment, the server transitions the booking to
+`PAYMENT_PENDING` in a short transaction and extends both `bookings.hold_expires_at`
+and `show_seats.hold_expires_at` to `GREATEST(hold_expires_at, now() + 3 minutes)`.
+Furthermore, `lockSeatsForHold` explicitly checks if `payment_started_at` is within
+2 minutes. Competing users receive 409 Conflict and cannot steal the seat."
+
+Q3: "What happens if the Node.js server crashes right after calling the payment gateway?"
+Ans: "We don't need a heavy background cron job. We implement Lazy Crash Recovery:
+Whenever the booking is subsequently read (`GET /bookings/:id`) or re-paid, the
+server queries the row with `SELECT ... FOR UPDATE`. If status is `PAYMENT_PENDING`
+and `payment_started_at` is older than 2 minutes, it checks if the hold is still valid.
+If valid, it safely reverts to `CREATED`; if expired, it marks `EXPIRED` and frees
+the seats. The recovery is completely atomic and race-safe."
+================================================================================
