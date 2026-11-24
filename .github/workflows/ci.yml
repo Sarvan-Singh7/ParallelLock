@@ -41,10 +41,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
@@ -57,13 +57,13 @@ jobs:
         working-directory: server
         run: npm ci
 
+      - name: Copy .env for node --env-file
+        working-directory: server
+        run: cp .env.example .env
+
       - name: Run database migrations
         working-directory: server
         run: npm run db:migrate
-
-      - name: Seed database
-        working-directory: server
-        run: npm run seed
 
       - name: Run full automated test suite (Vitest)
         working-directory: server

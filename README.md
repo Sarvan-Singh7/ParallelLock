@@ -1,5 +1,7 @@
 # ParallelLock
 
+[![CI Pipeline](https://github.com/Sarvan-Singh7/ParallelLock/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarvan-Singh7/ParallelLock/actions/workflows/ci.yml)
+
 A production-grade, high-concurrency movie ticket booking engine built with **Node.js**, **Express**, **PostgreSQL**, and **React**.
 
 ParallelLock demonstrates how to solve the classic **"check-then-act" race condition**, double-booking anomalies, and distributed deadlocks in high-demand seat reservation systems using **PostgreSQL row-level locks** (`SELECT ... FOR UPDATE`) and transactional isolation—without external cache layers or distributed lock managers.
@@ -131,14 +133,18 @@ npm test
 # Run only the concurrency stress tests
 npm run test:concurrency
 
-# Run only the integration test suite
-npm run test:integration
+# Run database invariant verification
+npm run check:invariants
 
 # Run the complete measured benchmark suite (L1)
 npm run bench
+
+# Run deployment migrations safely
+npm run db:migrate
 ```
 
 See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for full measured hardware specs, throughput tables, and contention percentiles.
+See [docs/DEPLOY.md](docs/DEPLOY.md) for zero-downtime rolling deployment procedures, health probes, and production configuration.
 
 ---
 
