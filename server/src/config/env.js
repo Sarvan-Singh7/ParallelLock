@@ -14,6 +14,13 @@ const schema = z.object({
   MOCK_PAYMENT_MODE: z.enum(['sync', 'async']).default('sync'),
   SWEEPER_INTERVAL_MS: z.coerce.number().int().positive().default(30000),
   NODE_ENV:          z.string().default('development'),
+  // Rate limiting & Proxy configuration (R1)
+  TRUST_PROXY:       z.coerce.number().int().nonnegative().optional(),
+  ENABLE_RATE_LIMITER: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
+  RATE_LIMIT_HOLDS_PER_MIN: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_LOGIN_FAIL_IP_PER_15MIN: z.coerce.number().int().positive().default(60),
+  RATE_LIMIT_LOGIN_FAIL_EMAIL_PER_15MIN: z.coerce.number().int().positive().default(10),
+  RATE_LIMIT_REGISTER_PER_10MIN: z.coerce.number().int().positive().default(30),
 });
 
 const parsed = schema.safeParse(process.env);

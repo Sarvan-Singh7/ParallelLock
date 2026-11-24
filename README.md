@@ -33,6 +33,7 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **Payments, Webhooks & Refunds (P2-M3)** | **Built** | Three-phase payment (Phase A tx → Phase B external → Phase C tx), `payments` + `payment_events` tables, HMAC-SHA256 webhook verification, deduplication-in-one-tx, two-phase refund, `retryRefund`, `MOCK_PAYMENT_MODE=sync\|async`, `REFUND_PENDING`/`REFUNDED` states |
 | **State Machine, Sweeper & Invariants (P2-M4)** | **Built** | Explicit transition graph `assertTransition`, `booking_items` line-item ledger, background advisory-locked sweeper (`pg_try_advisory_lock` with `SKIP LOCKED`), automated invariant verification (`npm run check:invariants`) |
 | **Verification & Fault Tolerance (V0)** | **Built** | Dedicated client advisory lock lifecycle (zero pool lock leakage), process shutdown cleanup (`SIGTERM`/`SIGINT`), bounded refund retries (`refund_attempts` max 5) |
+| **Measured Benchmarks (L1)** | **Built** | Autocannon read/write benchmark suite (`npm run bench`): 30s read tests @ 50 & 200 conns, 200-user single-seat contention (20 rounds, 3 runs), 200-seat concurrent holds, detailed in `docs/BENCHMARKS.md` |
 | **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
 | **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
 
@@ -124,7 +125,12 @@ npm run test:concurrency
 
 # Run only the integration test suite
 npm run test:integration
+
+# Run the complete measured benchmark suite (L1)
+npm run bench
 ```
+
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for full measured hardware specs, throughput tables, and contention percentiles.
 
 ---
 

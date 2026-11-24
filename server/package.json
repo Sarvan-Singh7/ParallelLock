@@ -15,7 +15,8 @@
     "test:concurrency": "node --env-file=.env ./node_modules/vitest/vitest.mjs run --fileParallelism=false --reporter=verbose tests/concurrency",
     "demo:parallel": "node --env-file=.env scripts/demoParallel.js",
     "demo:unsafe": "node --env-file=.env scripts/demoUnsafe.js",
-    "check:invariants": "node --env-file=.env scripts/checkInvariants.js"
+    "check:invariants": "node --env-file=.env scripts/checkInvariants.js",
+    "bench": "node --env-file=.env scripts/bench/runAll.js"
   },
   "dependencies": {
     "argon2": "^0.41.1",
@@ -25,6 +26,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "autocannon": "^9.0.0",
     "supertest": "^7.0.0",
     "vitest": "^2.0.5"
   }
