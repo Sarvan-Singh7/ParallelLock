@@ -34,6 +34,7 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **State Machine, Sweeper & Invariants (P2-M4)** | **Built** | Explicit transition graph `assertTransition`, `booking_items` line-item ledger, background advisory-locked sweeper (`pg_try_advisory_lock` with `SKIP LOCKED`), automated invariant verification (`npm run check:invariants`) |
 | **Verification & Fault Tolerance (V0)** | **Built** | Dedicated client advisory lock lifecycle (zero pool lock leakage), process shutdown cleanup (`SIGTERM`/`SIGINT`), bounded refund retries (`refund_attempts` max 5) |
 | **Measured Benchmarks (L1)** | **Built** | Autocannon read/write benchmark suite (`npm run bench`): 30s read tests @ 50 & 200 conns, 200-user single-seat contention (20 rounds, 3 runs), 200-seat concurrent holds, detailed in `docs/BENCHMARKS.md` |
+| **Sliding-Window Rate Limiting (R1)** | **Built** | In-memory `RateLimitStore` (pluggable Redis interface), LRU eviction (100k keys), injectable clock, hold limiter (10/min per user id), login brute-force barrier (10 fails/15min per email, 60 fails/15min per IP, successful login resets email, byte-identical 429), register limiter (30/10min per IP), trusted proxy hop-count support |
 | **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
 | **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
 
@@ -71,6 +72,12 @@ CLIENT_ORIGIN=http://localhost:5173
 HOLD_SECONDS=480
 WEBHOOK_SECRET=at_least_16_chars_random_string
 MOCK_PAYMENT_MODE=sync
+TRUST_PROXY=1
+ENABLE_RATE_LIMITER=true
+RATE_LIMIT_HOLDS_PER_MIN=10
+RATE_LIMIT_LOGIN_FAIL_IP_PER_15MIN=60
+RATE_LIMIT_LOGIN_FAIL_EMAIL_PER_15MIN=10
+RATE_LIMIT_REGISTER_PER_10MIN=30
 ```
 
 ### 3. Run Migrations & Seed the Database

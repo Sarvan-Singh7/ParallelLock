@@ -3,13 +3,14 @@
  */
 import { Router } from 'express';
 import { requireAuth } from '../../common/middleware/auth.js';
+import { holdRateLimiter } from '../../common/middleware/rateLimiter.js';
 import { validateBody } from '../../common/validate.js';
 import { holdSchema, paySchema } from './booking.schema.js';
 import { bookingController } from './booking.controller.js';
 
 // Holds router: mounted on /api/v1/shows
 export const holdsRouter = Router();
-holdsRouter.post('/:id/holds', requireAuth, validateBody(holdSchema), bookingController.createHold);
+holdsRouter.post('/:id/holds', requireAuth, holdRateLimiter, validateBody(holdSchema), bookingController.createHold);
 
 // Bookings router: mounted on /api/v1/bookings
 export const bookingRouter = Router();

@@ -6,6 +6,7 @@
  */
 // TODO(phase-5): structured logging and request ids
 import express from 'express';
+import { env } from './config/env.js';
 import { cors } from './common/middleware/cors.js';
 import { errorHandler } from './common/middleware/errorHandler.js';
 
@@ -15,9 +16,14 @@ import seatsRoutes from './modules/seats/seats.routes.js';
 import { holdsRouter, bookingRouter, meRouter } from './modules/booking/booking.routes.js';
 import webhookRoutes from './modules/payment/payment.routes.js';
 
-// TODO(phase-2): mount rate-limiter middleware here.
-
 const app = express();
+
+// Trust proxy: Configured as a strict hop count (e.g. TRUST_PROXY=1 for Render/Cloudflare)
+// Applied ONLY when explicitly set via environment variable.
+// Must match the exact number of upstream reverse proxies to prevent IP header spoofing.
+if (typeof env.TRUST_PROXY === 'number') {
+  app.set('trust proxy', env.TRUST_PROXY);
+}
 
 // ── Global middleware ────────────────────────────────────────────────────────
 app.use(cors);

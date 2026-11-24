@@ -120,8 +120,8 @@ docker compose up -d
 # 2. Run migrations
 npm run migrate
 
-# 3. Start API server in production mode
-NODE_ENV=production node --env-file=.env src/server.js
+# 3. Start API server in production mode (rate limiter disabled for benchmarks)
+ENABLE_RATE_LIMITER=false NODE_ENV=production node --env-file=.env src/server.js
 
 # 4. In a separate terminal, execute the benchmark suite
 npm run bench

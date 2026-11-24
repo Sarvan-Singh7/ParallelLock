@@ -15,11 +15,15 @@ export function errorHandler(err, _req, res, _next) {
     if (err.status === 503) {
       res.setHeader('Retry-After', '1');
     }
+    if (err.status === 429) {
+      const retryAfter = Math.max(1, Math.ceil(Number(err.details?.retryAfter) || 60));
+      res.setHeader('Retry-After', String(retryAfter));
+    }
     return res.status(err.status).json({
       error: {
         code:    err.code,
         message: err.message,
-        details: err.details,
+        details: err.status === 429 ? {} : err.details,
       },
     });
   }

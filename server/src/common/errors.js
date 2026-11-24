@@ -39,4 +39,5 @@ export const errors = {
   idempotencyKeyReused: ()             => new AppError(422, 'IDEMPOTENCY_KEY_REUSED', 'This idempotency key was already used with a different seat selection.'),
   holdExpired:      ()                 => new AppError(410, 'HOLD_EXPIRED',          'Your seat hold has expired.'),
   serviceUnavailable: ()               => new AppError(503, 'SERVICE_UNAVAILABLE',   'The service is temporarily busy. Please try again.'),
+  rateLimited:      (retryAfter = 60)  => new AppError(429, 'RATE_LIMITED',          'Too many requests. Please try again later.', { retryAfter }),
 };

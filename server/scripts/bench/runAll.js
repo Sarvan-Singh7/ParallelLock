@@ -23,6 +23,9 @@ import { env } from '../../src/config/env.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Explicitly ensure rate limiter is OFF during load benchmarks
+process.env.ENABLE_RATE_LIMITER = 'false';
+
 async function run() {
   console.log('================================================================');
   console.log('🚀  PARALLELLOCK MILESTONE L1: MEASURED BENCHMARKS SUITE');
