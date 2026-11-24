@@ -10,6 +10,7 @@
     "dev": "node --watch --env-file=.env src/server.js",
     "start": "node --env-file=.env src/server.js",
     "migrate": "node --env-file=.env src/db/migrate.js",
+    "db:migrate": "node src/db/migrate.js",
     "seed": "node --env-file=.env src/db/seeds/seed.js",
     "test": "node --env-file=.env ./node_modules/vitest/vitest.mjs run --fileParallelism=false --reporter=verbose",
     "test:concurrency": "node --env-file=.env ./node_modules/vitest/vitest.mjs run --fileParallelism=false --reporter=verbose tests/concurrency",

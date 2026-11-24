@@ -17,7 +17,7 @@ export class ApiError extends Error {
   }
 }
 
-const BASE_URL = '/api/v1';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 export async function apiRequest(endpoint, options = {}) {
   const token = localStorage.getItem('pl_token');
@@ -30,7 +30,9 @@ export async function apiRequest(endpoint, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  const cleanBase = BASE_URL.replace(/\/$/, '');
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${cleanBase}${cleanEndpoint}`;
 
   let res;
   try {

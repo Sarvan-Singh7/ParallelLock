@@ -23,10 +23,53 @@ const schema = z.object({
   RATE_LIMIT_REGISTER_PER_10MIN: z.coerce.number().int().positive().default(30),
 });
 
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile?.();
+  } catch {}
+}
+
 const parsed = schema.safeParse(process.env);
 
 if (!parsed.success) {
   console.error('❌  Invalid environment variables:\n', parsed.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+export function validateProductionSecrets(data) {
+  if (data.NODE_ENV !== 'production') return { valid: true, errors: [] };
+
+  const errors = [];
+
+  if (!data.JWT_SECRET || data.JWT_SECRET.length < 32) {
+    errors.push('JWT_SECRET must be at least 32 characters long in production.');
+  }
+
+  const insecureKeywords = ['development', 'dev_', 'example', 'replace_with', 'super_secret', 'at_least_16_chars'];
+  const isSecretInsecure = (secret) => {
+    const lower = (secret || '').toLowerCase();
+    return insecureKeywords.some((keyword) => lower.includes(keyword));
+  };
+
+  if (isSecretInsecure(data.JWT_SECRET)) {
+    errors.push('Refusing to start in production with default/development JWT_SECRET.');
+  }
+
+  if (isSecretInsecure(data.WEBHOOK_SECRET)) {
+    errors.push('Refusing to start in production with default/development WEBHOOK_SECRET.');
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, errors };
+  }
+
+  return { valid: true, errors: [] };
+}
+
+const secretCheck = validateProductionSecrets(parsed.data);
+if (!secretCheck.valid) {
+  console.error('❌  Production secret validation failed:');
+  secretCheck.errors.forEach((err) => console.error(`   - ${err}`));
   process.exit(1);
 }
 

@@ -34,6 +34,47 @@
 	],
 	"item": [
 		{
+			"name": "0. Health & Readiness",
+			"item": [
+				{
+					"name": "Health Check (Process Up)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Liveness probe verifying that the Node.js process and HTTP server are responsive. Returns 200 with process uptime."
+					},
+					"response": []
+				},
+				{
+					"name": "Readiness Check (Database Connected)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/ready",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"ready"
+							]
+						},
+						"description": "Readiness probe verifying that PostgreSQL connection is live and querying successfully (SELECT 1). Returns 503 if disconnected."
+					},
+					"response": []
+				}
+			]
+		},
+		{
 			"name": "1. Authentication",
 			"item": [
 				{

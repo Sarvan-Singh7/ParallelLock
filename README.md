@@ -35,6 +35,7 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **Verification & Fault Tolerance (V0)** | **Built** | Dedicated client advisory lock lifecycle (zero pool lock leakage), process shutdown cleanup (`SIGTERM`/`SIGINT`), bounded refund retries (`refund_attempts` max 5) |
 | **Measured Benchmarks (L1)** | **Built** | Autocannon read/write benchmark suite (`npm run bench`): 30s read tests @ 50 & 200 conns, 200-user single-seat contention (20 rounds, 3 runs), 200-seat concurrent holds, detailed in `docs/BENCHMARKS.md` |
 | **Sliding-Window Rate Limiting (R1)** | **Built** | In-memory `RateLimitStore` (pluggable Redis interface), LRU eviction (100k keys), injectable clock, hold limiter (10/min per user id), login brute-force barrier (10 fails/15min per email, 60 fails/15min per IP, successful login resets email, byte-identical 429), register limiter (30/10min per IP), trusted proxy hop-count support |
+| **Deployment Readiness (D1)** | **Built** | `GET /health` (process up) & `GET /ready` (DB query check), multi-stage Dockerfile (server & client with Nginx SPA rewrites), production secret fast-fail guard, safe deploy migrations (`npm run db:migrate`), GitHub Actions CI pipeline with Postgres container, deployment guide (`docs/DEPLOY.md`) |
 | **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
 | **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
 

@@ -15,6 +15,7 @@ import catalogRoutes from './modules/catalog/catalog.routes.js';
 import seatsRoutes from './modules/seats/seats.routes.js';
 import { holdsRouter, bookingRouter, meRouter } from './modules/booking/booking.routes.js';
 import webhookRoutes from './modules/payment/payment.routes.js';
+import pool from './db/pool.js';
 
 const app = express();
 
@@ -33,10 +34,39 @@ app.post('/api/v1/webhooks/payments', express.raw({ type: 'application/json' }))
 
 app.use(express.json());
 
-// ── Health check (not counted in the 10 application endpoints) ───────────────
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
-});
+// ── Liveness and Readiness probes ───────────────────────────────────────────
+// GET /health – Process up probe (fast, no DB dependency)
+const handleHealth = (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+};
+
+// GET /ready – Readiness probe (verifies database connectivity)
+const handleReady = async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.status(200).json({
+      status: 'ready',
+      db: 'connected',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(503).json({
+      status: 'not_ready',
+      db: 'disconnected',
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+};
+
+app.get('/health', handleHealth);
+app.get('/ready', handleReady);
+app.get('/api/v1/health', handleHealth);
+app.get('/api/v1/ready', handleReady);
 
 // ── API routes ──────────────────────────────────────────────────────────────
 app.use('/api/v1/auth', authRoutes);

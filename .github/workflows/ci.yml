@@ -1,0 +1,80 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-build:
+    name: Test & Build Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: parallellock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parallellock
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/parallellock_test
+      JWT_SECRET: super_secret_ci_testing_key_minimum_32_characters_123456789
+      WEBHOOK_SECRET: at_least_16_chars_ci_webhook_secret
+      PORT: 4000
+      CLIENT_ORIGIN: http://localhost:5173
+      HOLD_SECONDS: 480
+      ENABLE_RATE_LIMITER: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Prepare test database
+        run: |
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -c "CREATE DATABASE parallellock_test;"
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Run database migrations
+        working-directory: server
+        run: npm run db:migrate
+
+      - name: Seed database
+        working-directory: server
+        run: npm run seed
+
+      - name: Run full automated test suite (Vitest)
+        working-directory: server
+        run: npm test
+
+      - name: Verify database invariants
+        working-directory: server
+        run: npm run check:invariants
+
+      - name: Install client dependencies & test build
+        working-directory: client
+        run: |
+          npm ci
+          npm run build
