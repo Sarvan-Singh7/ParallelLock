@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ParallelLock – Complete SDE Interview Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --primary: #1a56db;
+    --primary-dark: #1e429f;
+    --accent: #0ea5e9;
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --bg: #ffffff;
+    --surface: #f8fafc;
+    --surface2: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    --code-bg: #0f172a;
+    --code-text: #e2e8f0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    page-break-after: always;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1a56db 100%);
+    color: white;
+    margin: -24px -32px;
+    padding: 60px 48px;
+    border-radius: 0;
+  }
+  .cover-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 10pt;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .cover h1 {
+    font-size: 44pt;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    line-height: 1.1;
+  }
+  .cover-subtitle {
+    font-size: 15pt;
+    font-weight: 400;
+    opacity: 0.85;
+    margin-bottom: 40px;
+    max-width: 540px;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 48px;
+  }
+  .cover-pill {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 10pt;
+  }
+  .cover-pill strong { display: block; font-size: 12pt; margin-bottom: 2px; }
+  .cover-stats {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+  .stat-box {
+    text-align: center;
+  }
+  .stat-num { font-size: 26pt; font-weight: 800; color: #60a5fa; }
+  .stat-label { font-size: 9pt; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.06em; }
+  .cover-author {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    font-size: 11pt;
+    opacity: 0.8;
+  }
+  .cover-author strong { font-size: 13pt; display: block; margin-bottom: 4px; }
+
+  /* ── TOC ── */
+  .toc-page {
+    page-break-after: always;
+    padding: 24px 0;
+  }
+  .toc-page h2 {
+    font-size: 20pt;
+    color: var(--primary-dark);
+    border-bottom: 3px solid var(--primary);
+    padding-bottom: 10px;
+    margin-bottom: 24px;
+  }
+  .toc-section { margin-bottom: 20px; }
+  .toc-section-title {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 11pt;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0 3px 16px;
+    border-bottom: 1px dotted var(--border);
+    color: var(--text);
+    font-size: 10pt;
+  }
+  .toc-item:hover { background: var(--surface); }
+
+  /* ── TYPOGRAPHY ── */
+  h1 {
+    font-size: 22pt;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin: 32px 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 3px solid var(--primary);
+    page-break-after: avoid;
+  }
+  h2 {
+    font-size: 15pt;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin: 24px 0 8px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #1e3a5f;
+    margin: 16px 0 6px;
+    page-break-after: avoid;
+  }
+  h4 {
+    font-size: 10.5pt;
+    font-weight: 600;
+    color: var(--primary);
+    margin: 12px 0 4px;
+  }
+  p { margin-bottom: 10px; }
+  ul, ol { margin: 8px 0 10px 22px; }
+  li { margin-bottom: 4px; }
+
+  /* ── SECTION HEADERS ── */
+  .chapter-header {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    color: white;
+    padding: 20px 24px;
+    border-radius: 10px;
+    margin: 36px -8px 20px;
+    page-break-inside: avoid;
+  }
+  .chapter-header .ch-num {
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.75;
+    margin-bottom: 4px;
+  }
+  .chapter-header h1 {
+    font-size: 16pt;
+    color: white;
+    border: none;
+    margin: 0;
+    padding: 0;
+  }
+  .chapter-header .ch-desc {
+    font-size: 9.5pt;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+
+  /* ── Q&A CARDS ── */
+  .qa-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 8px;
+    margin: 14px 0;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  .qa-question {
+    background: #eff6ff;
+    padding: 12px 16px;
+    font-weight: 600;
+    color: var(--primary-dark);
+    font-size: 10.5pt;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .qa-question .q-badge {
+    background: var(--primary);
+    color: white;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-size: 8.5pt;
+    font-weight: 700;
+    white-space: nowrap;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+  .qa-answer {
+    padding: 12px 16px;
+    color: var(--text);
+    font-size: 10pt;
+    line-height: 1.65;
+  }
+  .qa-answer p:last-child { margin-bottom: 0; }
+  .qa-answer ul { margin: 6px 0 8px 20px; }
+  .qa-answer li { margin-bottom: 3px; }
+
+  /* Difficulty badges */
+  .qa-card.easy { border-left-color: var(--success); }
+  .qa-card.easy .qa-question { background: #ecfdf5; }
+  .qa-card.easy .q-badge { background: var(--success); }
+  .qa-card.medium { border-left-color: var(--warning); }
+  .qa-card.medium .qa-question { background: #fffbeb; }
+  .qa-card.medium .q-badge { background: var(--warning); }
+  .qa-card.hard { border-left-color: var(--danger); }
+  .qa-card.hard .qa-question { background: #fef2f2; }
+  .qa-card.hard .q-badge { background: var(--danger); }
+  .qa-card.viva { border-left-color: #7c3aed; }
+  .qa-card.viva .qa-question { background: #f5f3ff; color: #4c1d95; }
+  .qa-card.viva .q-badge { background: #7c3aed; }
+
+  /* ── CODE BLOCKS ── */
+  pre {
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 14px 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 8.5pt;
+    line-height: 1.6;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+  code {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 8.5pt;
+    background: #e8f0fe;
+    color: #1a56db;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; }
+
+  /* ── INFO BOXES ── */
+  .info-box {
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 12px 0;
+    page-break-inside: avoid;
+  }
+  .info-box.note { background: #eff6ff; border-left: 4px solid var(--accent); }
+  .info-box.warning { background: #fffbeb; border-left: 4px solid var(--warning); }
+  .info-box.success { background: #ecfdf5; border-left: 4px solid var(--success); }
+  .info-box.danger { background: #fef2f2; border-left: 4px solid var(--danger); }
+  .info-box.tip { background: #f5f3ff; border-left: 4px solid #7c3aed; }
+  .info-box-title { font-weight: 700; margin-bottom: 6px; font-size: 10pt; }
+  .info-box.note .info-box-title { color: var(--accent); }
+  .info-box.warning .info-box-title { color: var(--warning); }
+  .info-box.success .info-box-title { color: var(--success); }
+  .info-box.danger .info-box-title { color: var(--danger); }
+  .info-box.tip .info-box-title { color: #7c3aed; }
+
+  /* ── TABLES ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 9.5pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: var(--primary-dark);
+    color: white;
+    padding: 9px 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:nth-child(even) td { background: var(--surface); }
+  tr:hover td { background: #eff6ff; }
+
+  /* ── TIMELINE ── */
+  .timeline { margin: 16px 0; }
+  .timeline-item {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+  .timeline-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11pt;
+    flex-shrink: 0;
+  }
+  .timeline-content { flex: 1; padding-top: 4px; }
+  .timeline-content h4 { margin: 0 0 4px; }
+
+  /* ── ARCHITECTURE GRID ── */
+  .arch-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin: 14px 0;
+  }
+  .arch-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    page-break-inside: avoid;
+  }
+  .arch-card h4 {
+    color: var(--primary-dark);
+    margin-bottom: 6px;
+    font-size: 10.5pt;
+  }
+  .arch-card p { font-size: 9.5pt; color: var(--text-muted); margin: 0; }
+
+  /* ── STATE MACHINE ── */
+  .state-flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 14px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  .state { display: inline-block; padding: 4px 10px; border-radius: 6px; font-weight: 600; margin: 2px; }
+  .state.created { background: #dbeafe; color: #1e40af; }
+  .state.pending { background: #fef3c7; color: #92400e; }
+  .state.confirmed { background: #d1fae5; color: #065f46; }
+  .state.expired { background: #f3f4f6; color: #374151; }
+  .state.cancelled { background: #fee2e2; color: #991b1b; }
+  .state.refund { background: #ede9fe; color: #4c1d95; }
+  .state.refunded { background: #e0f2fe; color: #0369a1; }
+  .arrow { color: var(--text-muted); margin: 0 4px; font-size: 12pt; }
+
+  /* ── BENCHMARK TABLE ── */
+  .bench-highlight td:nth-child(5) { background: #fffbeb; font-weight: 700; }
+  .good { color: var(--success); font-weight: 600; }
+  .warn { color: var(--warning); font-weight: 600; }
+
+  /* ── PAGE BREAK HELPERS ── */
+  .page-break { page-break-after: always; }
+  .no-break { page-break-inside: avoid; }
+
+  /* ── FOOTER ── */
+  .footer-note {
+    text-align: center;
+    color: var(--text-light);
+    font-size: 8.5pt;
+    padding: 20px 0 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 32px;
+  }
+
+  /* ── WHAT IF CARDS ── */
+  .whatif-card {
+    background: #fafafa;
+    border: 1px solid #e2e8f0;
+    border-top: 4px solid #7c3aed;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 12px 0;
+    page-break-inside: avoid;
+  }
+  .whatif-scenario {
+    font-weight: 700;
+    color: #4c1d95;
+    font-size: 10.5pt;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .whatif-badge {
+    background: #7c3aed;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 8pt;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .whatif-answer { font-size: 10pt; color: var(--text); line-height: 1.65; }
+
+  /* ── VIVA DEFENSE ── */
+  .viva-box {
+    border: 2px solid #7c3aed;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 16px 0;
+    page-break-inside: avoid;
+  }
+  .viva-question {
+    background: #4c1d95;
+    color: white;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 11pt;
+  }
+  .viva-defense {
+    padding: 16px 18px;
+    background: #fdf9ff;
+    font-size: 10pt;
+    line-height: 1.7;
+  }
+
+  /* ── QUICK REFERENCE ── */
+  .endpoint-table td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 8.5pt; white-space: nowrap; }
+  .method { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 8pt; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .method.get { background: #d1fae5; color: #065f46; }
+  .method.post { background: #dbeafe; color: #1e40af; }
+  .method.patch { background: #fef3c7; color: #92400e; }
+
+  /* ── PHASE DIAGRAM ── */
+  .phase-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+  .phase-block {
+    flex: 1;
+    padding: 12px 10px;
+    border-radius: 0;
+    text-align: center;
+  }
+  .phase-block:first-child { border-radius: 8px 0 0 8px; }
+  .phase-block:last-child { border-radius: 0 8px 8px 0; }
+  .phase-block.phA { background: #dbeafe; border: 1px solid #93c5fd; }
+  .phase-block.phB { background: #fef3c7; border: 1px solid #fcd34d; border-left: none; border-right: none; }
+  .phase-block.phC { background: #d1fae5; border: 1px solid #6ee7b7; }
+  .phase-title { font-weight: 700; font-size: 10pt; color: #1e3a5f; margin-bottom: 4px; }
+  .phase-sub { font-size: 8.5pt; color: var(--text-muted); }
+  .phase-arrow { display: flex; align-items: center; color: #64748b; font-size: 18pt; padding: 0 2px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     COVER PAGE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-badge">📘 Complete SDE Interview Guide</div>
+  <h1>ParallelLock</h1>
+  <p class="cover-subtitle">High-Concurrency Movie Ticket Booking Engine<br>From Architecture to Deployment — Everything You Need to Defend in an Interview</p>
+
+  <div class="cover-meta">
+    <div class="cover-pill"><strong>Node.js 20 (ESM)</strong>Runtime</div>
+    <div class="cover-pill"><strong>Express + PostgreSQL</strong>Backend</div>
+    <div class="cover-pill"><strong>React + Vite</strong>Frontend</div>
+    <div class="cover-pill"><strong>Vitest</strong>Test Runner</div>
+  </div>
+
+  <div class="cover-stats">
+    <div class="stat-box">
+      <div class="stat-num">78</div>
+      <div class="stat-label">Tests Passing</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">0</div>
+      <div class="stat-label">Double-Bookings</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">0</div>
+      <div class="stat-label">Deadlocks</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">12k</div>
+      <div class="stat-label">Stress Requests</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num">5</div>
+      <div class="stat-label">Milestones</div>
+    </div>
+  </div>
+
+  <div class="cover-author">
+    <strong>Sarvan Singh</strong>
+    Backend System Design · Database Concurrency · Production Deployment
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="toc-page">
+  <h2>📋 Table of Contents</h2>
+
+  <div class="toc-section">
+    <div class="toc-section-title">🏗️ Project Foundations</div>
+    <div class="toc-item"><span>1. What Is ParallelLock? (Problem Statement)</span></div>
+    <div class="toc-item"><span>2. Technology Stack & Why Each Was Chosen</span></div>
+    <div class="toc-item"><span>3. Database Schema — Tables, Relationships, Purpose</span></div>
+    <div class="toc-item"><span>4. The Core Problem: Check-Then-Act Race Condition</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">🔒 Concurrency Architecture</div>
+    <div class="toc-item"><span>5. The Solution: Row-Level Locks + Ordering + Timeouts</span></div>
+    <div class="toc-item"><span>6. The Booking State Machine</span></div>
+    <div class="toc-item"><span>7. Three-Phase Payment Architecture</span></div>
+    <div class="toc-item"><span>8. Background Sweeper & Advisory Locks</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">🛡️ Security & Operations</div>
+    <div class="toc-item"><span>9. Rate Limiting — NAT Defense & Brute-Force Barrier</span></div>
+    <div class="toc-item"><span>10. Deployment Architecture — Health Probes, Docker, CI/CD</span></div>
+    <div class="toc-item"><span>11. Real Benchmark Results (Milestone L1)</span></div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-title">🎯 Interview Questions</div>
+    <div class="toc-item"><span>12. Basic Q&A (Fundamentals) — Q1 to Q20</span></div>
+    <div class="toc-item"><span>13. Intermediate Q&A (Architecture & Trade-offs) — Q21 to Q40</span></div>
+    <div class="toc-item"><span>14. Advanced SDE Q&A (Concurrency & Distributed Systems) — Q41 to Q60</span></div>
+    <div class="toc-item"><span>15. "What If" Scenarios — 15 Edge Cases Fully Answered</span></div>
+    <div class="toc-item"><span>16. "Why" Questions — Every Architectural Decision Justified</span></div>
+    <div class="toc-item"><span>17. The 3 Hardest Viva Questions — Airtight Defenses</span></div>
+    <div class="toc-item"><span>18. Quick Reference — APIs, Env Vars, Test Commands</span></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 1: WHAT IS PARALLELLOCK
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 1</div>
+  <h1>What Is ParallelLock? (The Problem Statement)</h1>
+  <div class="ch-desc">Understanding the exact real-world problem this system solves</div>
+</div>
+
+<h2>The Scenario</h2>
+<p>Imagine a blockbuster movie releases tickets at exactly <strong>10:00:00 AM</strong>. Ten thousand fans are sitting with their phones open, refreshing the page. The moment the clock strikes, all 10,000 hit "Book Seat A1" at the exact same millisecond.</p>
+<p>In a <strong>naive system</strong> without proper locking, this happens:</p>
+
+<div class="state-flow">
+<strong>THE DOUBLE-BOOKING DISASTER (Naive System):</strong><br><br>
+Worker 1 reads:  "Seat A1 → AVAILABLE"  ✓<br>
+Worker 2 reads:  "Seat A1 → AVAILABLE"  ✓  (simultaneously!)<br>
+Worker 1 writes: "Seat A1 → BOOKED by Alice"<br>
+Worker 2 writes: "Seat A1 → BOOKED by Bob"  ← OVERWRITES Alice!<br><br>
+<strong>Result:</strong> Two people paid for the same seat. Neither is happy.
+</div>
+
+<p>This is called the <strong>Check-Then-Act Race Condition</strong>. It's the same bug that crashes stock trading systems, hotel booking engines, and any system where a scarce resource is shared under concurrency.</p>
+
+<h2>ParallelLock's Guarantee</h2>
+<div class="info-box success">
+  <div class="info-box-title">✅ ParallelLock's Ironclad Guarantees</div>
+  <ul>
+    <li><strong>Zero double-bookings</strong> — ACID row-level locks guarantee exactly one winner per seat</li>
+    <li><strong>Zero deadlocks</strong> — Mathematically impossible with ascending seat ordering</li>
+    <li><strong>Zero connection pool starvation</strong> — 2-second fail-fast timeout circuit-breaker</li>
+    <li><strong>Zero lost payments</strong> — Idempotent three-phase state machine with automated refunds</li>
+    <li><strong>Zero orphaned holds</strong> — Passive expiry on the database clock (no cron dependency)</li>
+  </ul>
+</div>
+
+<h2>What Makes This Interview-Worthy?</h2>
+<p>ParallelLock demonstrates mastery of:</p>
+<div class="arch-grid">
+  <div class="arch-card">
+    <h4>🔒 Database Concurrency</h4>
+    <p>Row-level locks, isolation levels, deadlock prevention, connection pool management under extreme load.</p>
+  </div>
+  <div class="arch-card">
+    <h4>⚡ Distributed Systems</h4>
+    <p>Advisory locks for distributed mutual exclusion, idempotency keys, three-phase state machines.</p>
+  </div>
+  <div class="arch-card">
+    <h4>🏗️ System Design</h4>
+    <p>Layered architecture (routes → controller → service → repository), clean separation of concerns, SQL only in repos.</p>
+  </div>
+  <div class="arch-card">
+    <h4>🛡️ Production Readiness</h4>
+    <p>Health probes, rate limiting, Docker, CI/CD, production secret validation, zero-downtime deployments.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 2: TECH STACK
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 2</div>
+  <h1>Technology Stack & Why Each Was Chosen</h1>
+  <div class="ch-desc">Every technology decision has a specific reason — learn to defend it</div>
+</div>
+
+<table>
+  <tr>
+    <th>Technology</th>
+    <th>Role</th>
+    <th>Why This (Not Alternatives)</th>
+  </tr>
+  <tr>
+    <td><strong>Node.js 20 (ESM)</strong></td>
+    <td>API Server Runtime</td>
+    <td>Non-blocking I/O is ideal for a ticket system where most time is spent waiting for DB responses. ESM for clean import/export. <em>Alternatives (Go, Java): overkill for this scope; lose JS ecosystem.</em></td>
+  </tr>
+  <tr>
+    <td><strong>Express.js</strong></td>
+    <td>HTTP Framework</td>
+    <td>Minimal, unopinionated — full control over middleware ordering (critical for rate limiting placement). <em>Alternatives (Fastify): very similar; Express has more tutorials and hiring familiarity.</em></td>
+  </tr>
+  <tr>
+    <td><strong>PostgreSQL 16</strong></td>
+    <td>Primary Database</td>
+    <td>ACID transactions, row-level locks (<code>SELECT FOR UPDATE</code>), advisory locks, and <code>now()</code> for clock-based expiry. All needed in one engine. <em>Alternatives (MongoDB): no native row locks, requires optimistic concurrency = retry storms. Redis: volatile, no ACID.</em></td>
+  </tr>
+  <tr>
+    <td><strong>Raw SQL (pg driver)</strong></td>
+    <td>Database Access</td>
+    <td>Full control over lock ordering, timeout hints, and join strategies. ORMs like Sequelize hide or misorder locks, which breaks our deadlock prevention guarantee. <em>Alternative (Prisma): can't express <code>FOR UPDATE SKIP LOCKED</code> easily.</em></td>
+  </tr>
+  <tr>
+    <td><strong>Argon2id</strong></td>
+    <td>Password Hashing</td>
+    <td>OWASP-recommended winner of the Password Hashing Competition. Resists GPU and side-channel attacks. <em>Alternative (bcrypt): slower for same security level; lacks side-channel resistance.</em></td>
+  </tr>
+  <tr>
+    <td><strong>JWT HS256</strong></td>
+    <td>Auth Tokens</td>
+    <td>Stateless; no DB round-trip on every request. HS256 is fast and sufficient for a monolith. <em>Alternative (Sessions): requires Redis or DB for session store; adds infrastructure.</em></td>
+  </tr>
+  <tr>
+    <td><strong>React + Vite</strong></td>
+    <td>Frontend SPA</td>
+    <td>Fast HMR for development, familiar interview topic, Vite's <code>VITE_API_URL</code> env var for configurable API endpoint in Docker builds.</td>
+  </tr>
+  <tr>
+    <td><strong>Vitest</strong></td>
+    <td>Test Runner</td>
+    <td>Native ESM support (Jest requires transform config). Fast parallel test execution. <em>Alternative (Jest): requires Babel/ts-jest for ESM; more config overhead.</em></td>
+  </tr>
+  <tr>
+    <td><strong>Autocannon</strong></td>
+    <td>Benchmark Tool</td>
+    <td>Node.js-native HTTP load tester. Accurate percentile tracking. Added as devDependency only — zero production impact.</td>
+  </tr>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 3: DATABASE SCHEMA
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 3</div>
+  <h1>Database Schema — Tables, Relationships & Purpose</h1>
+  <div class="ch-desc">Every table exists for a specific reason; none are accidental</div>
+</div>
+
+<table>
+  <tr>
+    <th>Table</th>
+    <th>Columns (key)</th>
+    <th>Purpose & Design Decision</th>
+  </tr>
+  <tr>
+    <td><strong>users</strong></td>
+    <td>id, email (unique), password_hash, created_at</td>
+    <td>Customer accounts. Email normalized (lowercased) for consistent lookups. Argon2id hash stored, never plaintext. JWT issued on login — no session table needed.</td>
+  </tr>
+  <tr>
+    <td><strong>theaters</strong></td>
+    <td>id, name, city</td>
+    <td>Physical cinema locations. FK parent for screens and seats.</td>
+  </tr>
+  <tr>
+    <td><strong>screens</strong></td>
+    <td>id, theater_id, name, total_seats</td>
+    <td>Specific auditoriums within a theater. One theater can have multiple screens (IMAX, Screen 1, etc.).</td>
+  </tr>
+  <tr>
+    <td><strong>seats</strong></td>
+    <td>id, screen_id, row_label, column_number, tier (GOLD/SILVER)</td>
+    <td>Fixed physical seats. Never deleted. Tier determines price. The <code>id</code> is the integer used for ascending lock ordering.</td>
+  </tr>
+  <tr>
+    <td><strong>movies</strong></td>
+    <td>id, title, duration_mins, genre</td>
+    <td>Film catalog. Static reference data — changes infrequently.</td>
+  </tr>
+  <tr>
+    <td><strong>shows</strong></td>
+    <td>id, movie_id, screen_id, starts_at, gold_price_cents, silver_price_cents</td>
+    <td>Scheduled screenings. Prices stored in cents to avoid floating-point precision issues in financial calculations.</td>
+  </tr>
+  <tr>
+    <td><strong>show_seats</strong></td>
+    <td>show_id, seat_id, booking_id, status (AVAILABLE/HELD/BOOKED), hold_expires_at</td>
+    <td><strong>THE INVENTORY TABLE.</strong> Every show has one row per active seat. Status transitions are the core of concurrency control. <code>hold_expires_at</code> checked against <code>now()</code> for passive expiry.</td>
+  </tr>
+  <tr>
+    <td><strong>bookings</strong></td>
+    <td>id, user_id, show_id, status, idempotency_key (unique), hold_expires_at, payment_started_at, refund_attempts</td>
+    <td>Customer reservations. <code>idempotency_key</code> prevents double-booking on network retries. <code>refund_attempts</code> bounds retry loops (max 5).</td>
+  </tr>
+  <tr>
+    <td><strong>booking_items</strong></td>
+    <td>booking_id, show_id, seat_id, price_cents (PK: booking_id + seat_id)</td>
+    <td><strong>IMMUTABLE LINE-ITEM LEDGER.</strong> Written once at hold time, never updated. Preserves financial and seat audit records even if show_seats change. Used by "My Tickets" view.</td>
+  </tr>
+  <tr>
+    <td><strong>payments</strong></td>
+    <td>id, booking_id, status (INITIATED/SUCCEEDED/FAILED), provider_ref (UUID), amount_cents</td>
+    <td>Financial ledger. One row per payment attempt. <code>provider_ref</code> is the UUID sent to the payment gateway as a reference ID.</td>
+  </tr>
+  <tr>
+    <td><strong>payment_events</strong></td>
+    <td>id, provider_event_id (unique), payment_id, event_type, payload</td>
+    <td><strong>IDEMPOTENCY DEDUPLICATION TABLE.</strong> Webhook events stored with <code>ON CONFLICT DO NOTHING</code>. Prevents the same webhook from being processed twice even if the gateway retries delivery.</td>
+  </tr>
+  <tr>
+    <td><strong>schema_migrations</strong></td>
+    <td>filename (PK), applied_at</td>
+    <td>Migration tracker. Idempotent deploy runner — already-applied files are skipped safely.</td>
+  </tr>
+</table>
+
+<h2>Migration History</h2>
+<table>
+  <tr><th>Migration File</th><th>What It Added</th></tr>
+  <tr><td><code>001_schema.sql</code></td><td>Core tables: users, theaters, screens, seats, movies, shows, show_seats, bookings</td></tr>
+  <tr><td><code>002_idempotency.sql</code></td><td>idempotency_key column on bookings + unique index</td></tr>
+  <tr><td><code>003_payment_state.sql</code></td><td>payment_started_at column on bookings</td></tr>
+  <tr><td><code>004_payment_recovery.sql</code></td><td>Lazy crash recovery support columns</td></tr>
+  <tr><td><code>005_payments_and_webhooks.sql</code></td><td>payments table, payment_events table, REFUND_PENDING/REFUNDED statuses</td></tr>
+  <tr><td><code>006_booking_items.sql</code></td><td>booking_items line-item ledger + updated_at on bookings</td></tr>
+  <tr><td><code>007_refund_attempts.sql</code></td><td>refund_attempts INT NOT NULL DEFAULT 0 on bookings</td></tr>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 4: THE CORE PROBLEM
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 4</div>
+  <h1>The Core Problem: Check-Then-Act Race Condition</h1>
+  <div class="ch-desc">Understanding why naive solutions fail under concurrency</div>
+</div>
+
+<h2>The Naive Approach (Broken)</h2>
+
+<pre><code>-- NAIVE APPROACH (DO NOT USE)
+-- Worker 1 and Worker 2 execute this simultaneously:
+SELECT status FROM show_seats WHERE show_id = 1 AND seat_id = 42;
+-- Both read: status = 'AVAILABLE' ✓
+
+-- Now BOTH workers proceed to update:
+UPDATE show_seats SET status = 'HELD', booking_id = $bookingId
+WHERE show_id = 1 AND seat_id = 42;
+-- Worker 2's update silently overwrites Worker 1's hold!
+-- Result: Two bookings, one seat. Classic double-booking.</code></pre>
+
+<h2>Why This Happens</h2>
+<p>At <strong>Read Committed</strong> isolation (PostgreSQL's default), each statement only sees data committed before that statement began. Between the SELECT and the UPDATE, another transaction can commit a change. This gap — the time between checking a condition and acting on it — is the race condition window.</p>
+
+<div class="info-box warning">
+  <div class="info-box-title">⚠️ The Gap Is Microseconds But Real</div>
+  <p>Under 10,000 concurrent users, thousands of requests hit this gap simultaneously. Even a 10-microsecond window produces consistent double-bookings in production. This is exactly what crashed BookMyShow-style systems during Avengers: Endgame ticket drops.</p>
+</div>
+
+<h2>Other Broken "Solutions"</h2>
+<table>
+  <tr><th>Naive Fix</th><th>Why It Fails</th></tr>
+  <tr>
+    <td>Application-level mutex (Node.js lock)</td>
+    <td>Works on ONE server process. Any load balancer with 2+ nodes instantly breaks it.</td>
+  </tr>
+  <tr>
+    <td>MongoDB optimistic concurrency (version fields)</td>
+    <td>Under high contention, 99% of requests retry in a storm — catastrophically slow and still doesn't prevent the window.</td>
+  </tr>
+  <tr>
+    <td>Redis SETNX distributed lock</td>
+    <td>Adds network hops + Redis infrastructure. Split-brain during Redis outage. Harder to reason about atomicity with PostgreSQL transactions.</td>
+  </tr>
+  <tr>
+    <td>UNIQUE constraint only</td>
+    <td>Prevents duplicate rows but doesn't prevent two successful INSERTs with slightly different keys — not applicable here.</td>
+  </tr>
+  <tr>
+    <td>Serializable Isolation</td>
+    <td>PostgreSQL throws serialization failures (40001) requiring application retry loops — high latency and complex error handling under heavy load.</td>
+  </tr>
+</table>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 5: THE SOLUTION
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 5</div>
+  <h1>The Solution: Row-Level Locks + Ordering + Timeouts</h1>
+  <div class="ch-desc">How ParallelLock eliminates race conditions with mathematical certainty</div>
+</div>
+
+<h2>Weapon 1: SELECT … FOR UPDATE (Pessimistic Row-Level Lock)</h2>
+
+<pre><code>-- THE CORRECT APPROACH (ParallelLock's lockSeatsForHold)
+BEGIN;
+SET LOCAL lock_timeout = '2s';        -- Circuit breaker
+SET LOCAL statement_timeout = '5s';   -- Hard kill switch
+
+-- Lock the rows — only ONE transaction gets this lock at a time
+SELECT ss.*
+FROM show_seats ss
+WHERE ss.show_id = $showId
+  AND ss.seat_id = ANY($seatIds)
+  AND (
+    ss.status = 'AVAILABLE'
+    OR (ss.status = 'HELD' AND ss.hold_expires_at &lt;= now())
+  )
+ORDER BY ss.seat_id ASC    -- ← Critical: deadlock prevention
+FOR UPDATE;                -- ← Critical: pessimistic lock
+
+-- If we got all requested seats: proceed
+-- If we got fewer than requested: another tx won → ROLLBACK + 409
+COMMIT;</code></pre>
+
+<div class="info-box success">
+  <div class="info-box-title">✅ Why This Works</div>
+  <p>When Transaction A runs <code>SELECT FOR UPDATE</code> on seat 42, PostgreSQL places an exclusive row lock. Transaction B's identical query queues behind A and <strong>waits</strong>. When A commits with <code>status = 'HELD'</code>, B's lock is granted — but B now reads the already-committed HELD status and returns 0 rows, triggering a 409 response. <strong>Zero race condition. Zero double-booking.</strong></p>
+</div>
+
+<h2>Weapon 2: ORDER BY seat_id ASC (Deadlock Prevention)</h2>
+
+<div class="info-box note">
+  <div class="info-box-title">📐 The Deadlock Problem (Without Ordering)</div>
+  <p><strong>Alice</strong> books seats [10, 20]. Her transaction locks seat 10, then tries to lock seat 20.<br>
+  <strong>Bob</strong> books seats [20, 10]. His transaction locks seat 20, then tries to lock seat 10.<br>
+  <strong>Result:</strong> Alice waits for seat 20 (held by Bob). Bob waits for seat 10 (held by Alice). Both wait forever → <strong>Deadlock.</strong></p>
+</div>
+
+<p><strong>ParallelLock's fix:</strong> <code>ORDER BY seat_id ASC</code> forces ALL transactions to request locks in the same order. Alice and Bob both try to lock seat 10 first, then seat 20. Only one can proceed — the other waits. <strong>Cyclic wait is mathematically impossible.</strong></p>
+
+<h2>Weapon 3: Lock Timeout Circuit Breaker</h2>
+
+<pre><code>SET LOCAL lock_timeout = '2s';
+-- If a lock cannot be acquired within 2 seconds:
+-- PostgreSQL throws error code 55P03
+-- ParallelLock catches this and returns 503 Service Unavailable</code></pre>
+
+<p>This prevents 10,000 waiting transactions from holding 10 precious database connections for extended periods. The circuit breaks cleanly, protecting throughput for all other shows.</p>
+
+<h2>Weapon 4: Passive Expiry on Database Clock</h2>
+
+<pre><code>-- A seat is "free" if:
+-- 1. It was never held, OR
+-- 2. Its hold has expired on the DATABASE clock (not app clock)
+(ss.status = 'AVAILABLE')
+OR (ss.status = 'HELD' AND ss.hold_expires_at &lt;= now())</code></pre>
+
+<p>This eliminates dependency on background sweeper crons. Even if the sweeper is off, no expired hold can block a new booking. The database clock is the single source of truth.</p>
+
+<h2>Weapon 5: User Row Lock (Prevents Same-User Duplicate)</h2>
+
+<pre><code>-- Lock the user row to prevent Alice from double-tapping simultaneously
+SELECT id FROM users WHERE id = $userId FOR UPDATE;</code></pre>
+
+<p>This serializes concurrent holds from the same user, working alongside the idempotency key to guarantee no duplicate holds.</p>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 6: STATE MACHINE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 6</div>
+  <h1>The Booking State Machine</h1>
+  <div class="ch-desc">Every state transition is explicit, validated, and defensible</div>
+</div>
+
+<h2>Booking Statuses</h2>
+<div class="state-flow">
+  <span class="state created">CREATED</span>
+  <span class="arrow">→</span>
+  <span class="state pending">PAYMENT_PENDING</span>
+  <span class="arrow">→</span>
+  <span class="state confirmed">CONFIRMED</span>
+  &nbsp;&nbsp;&nbsp;(Terminal ✓)<br><br>
+  <span class="state created">CREATED</span>
+  <span class="arrow">→</span>
+  <span class="state expired">EXPIRED</span>
+  &nbsp;&nbsp;&nbsp;(Terminal — 8-min hold ran out)<br><br>
+  <span class="state created">CREATED</span>
+  <span class="arrow">→</span>
+  <span class="state cancelled">CANCELLED</span>
+  <span class="arrow">→</span>
+  <span class="state refund">REFUND_PENDING</span>
+  <span class="arrow">→</span>
+  <span class="state refunded">REFUNDED</span>
+  &nbsp;&nbsp;&nbsp;(Terminal ✓)<br><br>
+  <span class="state pending">PAYMENT_PENDING</span>
+  <span class="arrow">→</span>
+  <span class="state refund">REFUND_PENDING</span>
+  &nbsp;&nbsp;&nbsp;(seat stolen mid-payment → auto-refund)
+</div>
+
+<h2>Show Seat Statuses</h2>
+<div class="state-flow">
+  <span class="state created">AVAILABLE</span>
+  <span class="arrow">→</span>
+  <span class="state pending">HELD</span>
+  &nbsp;&nbsp;(hold created, 8-min countdown)<br><br>
+  <span class="state pending">HELD</span>
+  <span class="arrow">→</span>
+  <span class="state confirmed">BOOKED</span>
+  &nbsp;&nbsp;(payment confirmed)<br><br>
+  <span class="state pending">HELD</span>
+  <span class="arrow">→</span>
+  <span class="state created">AVAILABLE</span>
+  &nbsp;&nbsp;(hold expires / booking cancelled)
+</div>
+
+<table>
+  <tr><th>From</th><th>To</th><th>What Triggers It</th></tr>
+  <tr><td>CREATED</td><td>PAYMENT_PENDING</td><td>User submits payment → Phase A transaction begins</td></tr>
+  <tr><td>PAYMENT_PENDING</td><td>CONFIRMED</td><td>Gateway confirms payment → Phase C verifies seats still HELD</td></tr>
+  <tr><td>PAYMENT_PENDING</td><td>CREATED</td><td>Lazy crash recovery: payment_started_at > 2 min, hold still valid</td></tr>
+  <tr><td>PAYMENT_PENDING</td><td>EXPIRED</td><td>Lazy crash recovery: payment_started_at > 2 min, hold expired</td></tr>
+  <tr><td>PAYMENT_PENDING</td><td>REFUND_PENDING</td><td>Phase C finds seats no longer HELD (stolen by another user)</td></tr>
+  <tr><td>CANCELLED / REFUND_PENDING</td><td>REFUNDED</td><td>Gateway confirms refund</td></tr>
+</table>
+
+<div class="info-box note">
+  <div class="info-box-title">📝 assertTransition(from, to)</div>
+  <p>Every status change in the codebase calls <code>assertTransition(from, to)</code>. If the transition isn't in the allowed graph, it throws <code>409 INVALID_STATE</code>. This prevents impossible state sequences from ever entering the database — even if a bug in service code tries to skip steps.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 7: THREE-PHASE PAYMENT
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 7</div>
+  <h1>Three-Phase Payment Architecture</h1>
+  <div class="ch-desc">Why payments run in three phases, not one — and why it matters</div>
+</div>
+
+<h2>The Problem With "Payment In One Transaction"</h2>
+<p>Payment gateways (Stripe, Razorpay) take <strong>1 to 10 seconds</strong> to respond. If you call the gateway inside a PostgreSQL transaction, you hold database row locks open for those seconds. With 10 pooled connections and 200 concurrent users, the entire server stalls in <strong>under 2 seconds</strong>.</p>
+
+<h2>The Three-Phase Solution</h2>
+<div class="phase-flow">
+  <div class="phase-block phA">
+    <div class="phase-title">Phase A (~50ms)</div>
+    <div class="phase-sub">Short DB Transaction:<br>Lock booking row<br>Verify CREATED status<br>Set PAYMENT_PENDING<br>Extend hold +3 min<br>Generate provider_ref UUID<br>Insert payment INITIATED</div>
+  </div>
+  <div class="phase-arrow">→</div>
+  <div class="phase-block phB">
+    <div class="phase-title">Phase B (1–10s)</div>
+    <div class="phase-sub">External Gateway Call<br>OUTSIDE all DB transactions<br>No locks held<br>No pool connections consumed<br>Gateway charges card<br>Returns success/failure</div>
+  </div>
+  <div class="phase-arrow">→</div>
+  <div class="phase-block phC">
+    <div class="phase-title">Phase C (~50ms)</div>
+    <div class="phase-sub">Short DB Transaction:<br>Lock bookings → payments → show_seats<br>Verify seats still HELD<br>If yes: BOOKED + CONFIRMED<br>If no (stolen): REFUND_PENDING<br>Auto-refund outside tx</div>
+  </div>
+</div>
+
+<h2>Why The Lock Order Matters in Phase C</h2>
+<pre><code>-- Phase C lock hierarchy (ALWAYS in this order):
+-- 1. Lock booking row
+-- 2. Lock payment row
+-- 3. Lock show_seat rows (ORDER BY seat_id ASC)
+-- This matches ALL other transactions' lock order → deadlock impossible</code></pre>
+
+<h2>The Late-Payment Race Condition (The Hardest Bug)</h2>
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">SCENARIO</span>Alice's hold expires while she's typing her OTP. Bob immediately claims Seat A1. 2 seconds later, Alice's payment gateway webhook arrives saying "payment succeeded."</div>
+  <div class="whatif-answer">
+    <strong>Phase C saves her:</strong><br>
+    When the webhook arrives, <code>finalizePayment</code> runs inside a transaction. It locks Alice's booking and Alice's show_seat rows. It checks: <code>booking_id = alice_booking AND status = 'HELD'</code>. Because Bob took the seat, this condition returns 0 rows. The transaction transitions Alice to <code>REFUND_PENDING</code> and commits. Outside the transaction, it calls the payment gateway to refund Alice. The sweeper retries if the gateway is temporarily busy (bounded at 5 attempts).<br><br>
+    <strong>Result:</strong> Zero double-booking. Alice gets her money back automatically.
+  </div>
+</div>
+
+<h2>Webhook Security — HMAC-SHA256 Verification</h2>
+<pre><code>// server/src/modules/payment/payment.service.js
+const expectedBuf = Buffer.from(expectedSignature);
+const receivedBuf = Buffer.from(receivedSignature);
+
+// CRITICAL: check length FIRST (timingSafeEqual requires equal length buffers)
+if (expectedBuf.length !== receivedBuf.length) {
+  throw new Error('INVALID_SIGNATURE');
+}
+
+// Constant-time comparison — prevents timing attacks
+if (!crypto.timingSafeEqual(expectedBuf, receivedBuf)) {
+  throw new Error('INVALID_SIGNATURE');
+}</code></pre>
+
+<div class="info-box tip">
+  <div class="info-box-title">🎯 Interview Tip: Timing Attacks</div>
+  <p>Standard <code>===</code> short-circuits on the first mismatched byte. An attacker can send many requests with slightly different signatures and measure response times byte-by-byte to reconstruct the secret. <code>crypto.timingSafeEqual</code> always takes the same time regardless of where the mismatch is — constant-time comparison.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 8: SWEEPER & ADVISORY LOCKS
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 8</div>
+  <h1>Background Sweeper & Advisory Locks</h1>
+  <div class="ch-desc">Housekeeping without correctness dependency — distributed mutual exclusion</div>
+</div>
+
+<h2>What the Sweeper Does</h2>
+<p>The sweeper runs every 30 seconds (configurable via <code>SWEEPER_INTERVAL_MS</code>) in the background. It performs three housekeeping tasks:</p>
+
+<ol>
+  <li><strong>Expire stale CREATED bookings</strong> — Bookings whose <code>hold_expires_at &lt;= now()</code> are marked EXPIRED and their <code>show_seats</code> reverted to AVAILABLE</li>
+  <li><strong>Recover stale PAYMENT_PENDING bookings</strong> — If <code>payment_started_at &gt; 2 min</code> (gateway never responded): revert to CREATED if hold valid, or EXPIRED if hold ran out</li>
+  <li><strong>Retry REFUND_PENDING bookings</strong> — If the payment gateway was busy when a refund was attempted, retry until the refund succeeds (bounded at 5 attempts)</li>
+</ol>
+
+<div class="info-box success">
+  <div class="info-box-title">✅ Critical Design Point: The Sweeper Is NOT Required for Correctness</div>
+  <p>Even if the sweeper is completely stopped, ParallelLock remains 100% correct. Passive expiry (checking <code>hold_expires_at &lt;= now()</code> inline in every query) ensures expired holds are never counted. The sweeper is purely a housekeeping optimization that proactively cleans up orphaned rows and retries failed refunds.</p>
+</div>
+
+<h2>Why Advisory Locks Instead of Redis Distributed Locks</h2>
+<pre><code>-- Advisory locks are PostgreSQL-native distributed mutex
+-- No Redis, no Consul, no extra infrastructure needed
+
+-- NON-BLOCKING try-lock:
+SELECT pg_try_advisory_lock(987654321);
+-- Returns TRUE to exactly ONE instance
+-- Returns FALSE to all others IMMEDIATELY (no queuing)</code></pre>
+
+<h2>The Pool Leak Problem (Why a Dedicated Client Is Required)</h2>
+<div class="info-box danger">
+  <div class="info-box-title">🚨 The Bug: Running Advisory Lock on pool.query()</div>
+  <p>If you run <code>pool.query('SELECT pg_try_advisory_lock(987654321)')</code>, the connection holding the lock is returned to the pool after the query. The NEXT random HTTP request that borrows that connection inherits the advisory lock — causing lock leaks or permanent lockout of all other server instances.</p>
+</div>
+
+<pre><code>// CORRECT: Dedicated client for the full lock lifetime
+const client = await pool.connect();   // Check out exclusively
+try {
+  const { rows } = await client.query('SELECT pg_try_advisory_lock(987654321) AS locked');
+  if (!rows[0].locked) return;         // Another instance is sweeping
+  
+  await runSweepBody(client);          // Do the work
+} finally {
+  await client.query('SELECT pg_advisory_unlock(987654321)');
+  client.release();                     // Return to pool AFTER unlock
+}</code></pre>
+
+<h2>Bounded Refund Retries (Poison Pill Prevention)</h2>
+<pre><code>-- Only retry bookings under the max attempt threshold
+SELECT * FROM bookings
+WHERE status = 'REFUND_PENDING'
+  AND refund_attempts &lt; 5   -- Max 5 retries
+  AND updated_at &lt; now() - interval '1 minute'
+FOR UPDATE SKIP LOCKED;</code></pre>
+
+<p>If the payment gateway is permanently down, without bounds every sweep cycle would retry the same failing booking forever — consuming rate limit quota and log space (the "poison pill" problem). After 5 attempts, the sweeper stops and logs: <em>"[Sweeper] Max refund attempts (5) reached for booking &lt;id&gt;. Manual intervention required."</em></p>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 9: RATE LIMITING
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 9</div>
+  <h1>Rate Limiting — NAT Defense & Brute-Force Barrier</h1>
+  <div class="ch-desc">Sliding-window rate limiting that doesn't block legitimate campus users</div>
+</div>
+
+<h2>The NAT / Shared IP Dilemma</h2>
+<div class="info-box warning">
+  <div class="info-box-title">⚠️ The Problem With Per-IP Hold Limits</div>
+  <p>If 200 students at a university share a single NAT IP address (very common on campus Wi-Fi and corporate networks) and all try to book movie tickets during a popular release, a per-IP hold rate limiter would block all 200 students after the first 10 holds — even though they are 200 different authenticated users.</p>
+</div>
+
+<h2>ParallelLock's Solution</h2>
+<table>
+  <tr><th>Endpoint</th><th>Limit</th><th>Key</th><th>Rationale</th></tr>
+  <tr>
+    <td>POST /holds (booking)</td>
+    <td>10/min</td>
+    <td><code>req.user.id</code></td>
+    <td>Keyed by authenticated user — 200 students on same IP never block each other</td>
+  </tr>
+  <tr>
+    <td>POST /auth/login (failed)</td>
+    <td>10 fails/15min</td>
+    <td>Normalized email</td>
+    <td>Tight brute-force defense for each individual account</td>
+  </tr>
+  <tr>
+    <td>POST /auth/login (failed)</td>
+    <td>60 fails/15min</td>
+    <td>IP address</td>
+    <td>High threshold catches distributed dictionary attacks without blocking campus logins</td>
+  </tr>
+  <tr>
+    <td>POST /auth/register</td>
+    <td>30/10min</td>
+    <td>IP address</td>
+    <td>Prevents bot-registration spam. CAPTCHA is the right next control (documented in code).</td>
+  </tr>
+  <tr>
+    <td>GET /shows (catalog reads)</td>
+    <td>None</td>
+    <td>N/A</td>
+    <td>Seat map polling from one shared IP would hit a global limiter — no per-IP limit on reads</td>
+  </tr>
+</table>
+
+<h2>The RateLimitStore Interface (Pluggable Redis)</h2>
+<pre><code>// server/src/common/middleware/rateLimitStore.js
+// Standard interface — swap in Redis store later without changing middleware
+class RateLimitStore {
+  get(key) { }                         // Returns {count, resetAt} or null
+  increment(key, windowMs) { }         // Atomic: read and write in one step (no await between)
+  reset(key) { }                       // Called on successful login to clear email bucket
+}
+
+// InMemoryRateLimitStore features:
+// - Injectable now() clock for microsecond-exact testing without setTimeout
+// - LRU eviction at 100,000 keys (oldest key removed first)
+// - unref()'d cleanup timer — won't prevent process exit
+// - Per-process only: multi-instance deployments need Redis store</code></pre>
+
+<h2>Zero Information Leakage</h2>
+<pre><code>// WRONG: This reveals whether the email exists
+if (emailExists &amp;&amp; failedAttempts &gt; 10) return 429;
+if (!emailExists) return 401;   // ← attacker learns email doesn't exist
+
+// CORRECT: ParallelLock's approach
+// 1. Increment the email failure bucket BEFORE checking if email exists
+// 2. Check the bucket limit BEFORE the DB lookup
+// 3. Use identical response body/headers for existing and non-existing emails
+// 4. Attacker cannot distinguish: they always see the same 429 body byte-for-byte</code></pre>
+
+<h2>TRUST_PROXY — Secure Proxy Header Handling</h2>
+<pre><code>// server/src/app.js — NEVER trust by default
+if (parseInt(process.env.TRUST_PROXY)) {
+  app.set('trust proxy', parseInt(process.env.TRUST_PROXY));
+}
+// TRUST_PROXY=1 behind Render/Cloudflare — passes real client IP from X-Forwarded-For
+// Without this: all requests appear to come from the proxy's IP (127.0.0.1)
+// With trust proxy = true (wrong): attacker can spoof X-Forwarded-For header</code></pre>
+
+<h2>429 Response Format</h2>
+<pre><code>{
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "Too many requests. Please try again later.",
+    "details": {}
+  }
+}
+// Headers:
+// Retry-After: 42        (integer seconds until window resets)
+// X-RateLimit-Limit: 10  (the limit)
+// X-RateLimit-Remaining: 0
+// X-RateLimit-Reset: 1700000000  (Unix timestamp)
+// NEVER includes the key (email or IP — privacy)</code></pre>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 10: DEPLOYMENT
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 10</div>
+  <h1>Deployment Architecture</h1>
+  <div class="ch-desc">Health probes, Dockerfile, CI/CD pipeline, and production safeguards</div>
+</div>
+
+<h2>Health Probe Separation</h2>
+<table>
+  <tr><th>Endpoint</th><th>Type</th><th>Checks</th><th>Returns</th><th>Why Separate</th></tr>
+  <tr>
+    <td><code>GET /health</code></td>
+    <td>Liveness</td>
+    <td>Node.js event loop responsive (no DB)</td>
+    <td>200 always (while process is up)</td>
+    <td>DB outage shouldn't restart containers</td>
+  </tr>
+  <tr>
+    <td><code>GET /ready</code></td>
+    <td>Readiness</td>
+    <td><code>SELECT 1</code> against PostgreSQL</td>
+    <td>200 (healthy) or 503 (DB down)</td>
+    <td>Removes container from load balancer pool until DB is back</td>
+  </tr>
+</table>
+
+<div class="info-box danger">
+  <div class="info-box-title">🚨 The Cascading Restart Storm</div>
+  <p>If <code>/health</code> queries the database and the DB has a 30-second transient hiccup, Kubernetes sees the liveness probe fail and <strong>kills and restarts all containers simultaneously</strong>. The restart storm causes more DB connections → more load → longer hiccup → all containers restart again. Separating liveness from readiness prevents this.</p>
+</div>
+
+<h2>Production Secret Guard</h2>
+<pre><code>// server/src/config/env.js — evaluated at startup in production
+function validateProductionSecrets() {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  const forbidden = ['super_secret', 'development', 'dev_', 'replace_with', 'example'];
+  const secret = process.env.JWT_SECRET || '';
+
+  if (secret.length &lt; 32) {
+    console.error('FATAL: JWT_SECRET must be at least 32 characters in production');
+    process.exit(1);  // Hard stop — container fails fast at deploy time
+  }
+  if (forbidden.some(kw => secret.toLowerCase().includes(kw))) {
+    console.error('FATAL: JWT_SECRET contains a development placeholder keyword');
+    process.exit(1);
+  }
+}</code></pre>
+
+<h2>Multi-Stage Dockerfile (Server)</h2>
+<pre><code># Stage 1: Install dependencies (includes native Argon2 compilation)
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Stage 2: Run as unprivileged node user
+FROM node:20-alpine AS runner
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY src ./src
+USER node                          # Never run as root
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://localhost:4000/health || exit 1
+CMD ["node", "src/server.js"]</code></pre>
+
+<h2>GitHub Actions CI Pipeline</h2>
+<pre><code># .github/workflows/ci.yml
+# Triggered on every push to main
+services:
+  postgres:
+    image: postgres:16-alpine
+    env: { POSTGRES_DB: parallellock_test, ... }
+    
+steps:
+  - npm ci
+  - npm run db:migrate     # Run all migrations against test DB
+  - npm run seed           # Seed test data
+  - npx eslint src/        # Lint check
+  - npm test               # 78 Vitest tests (expect all passing)
+  - cd client &amp;&amp; npm run build  # Verify frontend builds without errors</code></pre>
+
+<h2>Safe Migration Runner</h2>
+<pre><code>// server/src/db/migrate.js — Idempotent, transactional, fail-fast
+// 1. Creates schema_migrations table if not exists
+// 2. Reads all .sql files from src/db/migrations/ alphabetically
+// 3. For each file: checks if already in schema_migrations (skip if yes)
+// 4. BEGIN; runs the SQL; INSERT INTO schema_migrations; COMMIT;
+// 5. On any error: ROLLBACK; process.exit(1) → blocks broken CD pipelines</code></pre>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 11: BENCHMARKS
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="chapter-header">
+  <div class="ch-num">Chapter 11</div>
+  <h1>Real Benchmark Results (Milestone L1)</h1>
+  <div class="ch-desc">Real measured numbers — never estimated or rounded</div>
+</div>
+
+<div class="info-box note">
+  <div class="info-box-title">📐 Environment</div>
+  <p><strong>CPU:</strong> AMD Ryzen 5 5600H (12 logical cores) | <strong>RAM:</strong> 15.34 GB | <strong>OS:</strong> Windows 11 (10.0.26200) | <strong>Node.js:</strong> v22.17.0 | <strong>PostgreSQL:</strong> 16 (Docker postgres:16-alpine) | <strong>Pool Size:</strong> 10 connections | <strong>Mode:</strong> NODE_ENV=production, ENABLE_RATE_LIMITER=false</p>
+  <p><em>These are single-machine local results, not production cluster capacity.</em></p>
+</div>
+
+<h2>Benchmark A: Read Throughput (GET /shows/:id/seats)</h2>
+<table class="bench-highlight">
+  <tr><th>Connections</th><th>Run 1</th><th>Run 2</th><th>Run 3</th><th>Median req/s</th><th>Median p99 (ms)</th></tr>
+  <tr>
+    <td>50</td>
+    <td>287.61</td>
+    <td>298.64</td>
+    <td>317.57</td>
+    <td class="good">298.64</td>
+    <td>268</td>
+  </tr>
+  <tr>
+    <td>200</td>
+    <td>306.90</td>
+    <td>305.07</td>
+    <td>346.17</td>
+    <td class="good">306.90</td>
+    <td>1091</td>
+  </tr>
+</table>
+<p>Zero errors. Zero timeouts. The read path scales linearly because it's a single SQL join with no locks.</p>
+
+<h2>Benchmark B: Contention on ONE Seat (200 concurrent, 20 rounds × 3 runs)</h2>
+<table>
+  <tr><th>Status</th><th>Run 1</th><th>Run 2</th><th>Run 3</th><th>Meaning</th></tr>
+  <tr><td><strong>201 Created</strong></td><td class="good">20</td><td class="good">20</td><td class="good">20</td><td>Exactly 1 winner per round (perfect!)</td></tr>
+  <tr><td><strong>409 Conflict</strong></td><td>3,980</td><td>3,980</td><td>3,980</td><td>All other requesters fail fast</td></tr>
+  <tr><td><strong>503 Unavailable</strong></td><td class="good">0</td><td class="good">0</td><td class="good">0</td><td>No lock timeouts (10-conn pool handled it)</td></tr>
+  <tr><td><strong>5xx Errors</strong></td><td class="good">0</td><td class="good">0</td><td class="good">0</td><td>Zero unhandled errors across 12,000 requests</td></tr>
+</table>
+<p><strong>Contention latency:</strong> Median avg 619 ms, median p99 1,102 ms (well under 2s lock_timeout circuit breaker).</p>
+
+<h2>Benchmark C: 200 Users Holding 200 Different Seats</h2>
+<table>
+  <tr><th>Metric</th><th>Run 1</th><th>Run 2</th><th>Run 3</th><th>Median</th></tr>
+  <tr><td>201 Created</td><td class="good">200</td><td class="good">200</td><td class="good">200</td><td class="good">200</td></tr>
+  <tr><td>409/503/5xx</td><td>0/0/0</td><td>0/0/0</td><td>0/0/0</td><td class="good">0/0/0</td></tr>
+  <tr><td>Duration (s)</td><td>1.224</td><td>1.366</td><td>1.556</td><td>1.366</td></tr>
+  <tr><td>Throughput (req/s)</td><td>163.39</td><td>146.43</td><td>128.54</td><td>146.43</td></tr>
+  <tr><td>Median p99 latency (ms)</td><td>1,202.63</td><td>1,344.20</td><td>1,536.28</td><td>1,344.20</td></tr>
+</table>
+
+<h2>Post-Benchmark Invariant Check</h2>
+<pre><code>Query 1: BOOKED seats without a CONFIRMED booking → 0 rows ✅
+Query 2: CONFIRMED bookings with seat count mismatch → 0 rows ✅
+Query 3: HELD seats under EXPIRED/CANCELLED/REFUNDED bookings → 0 rows ✅
+
+Result: All invariants hold: 0 violations across all checks.</code></pre>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 12: BASIC Q&A
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 12</div>
+  <h1>Basic Q&amp;A — Fundamentals (Q1–Q20)</h1>
+  <div class="ch-desc">Questions every interviewer asks first — master these before anything else</div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q1 EASY</span> What does ParallelLock do in one sentence?</div>
+  <div class="qa-answer"><p>ParallelLock is a high-concurrency movie ticket booking engine that uses PostgreSQL row-level locks and strict seat ordering to guarantee that exactly one user can book a given seat at any moment — even under simultaneous load from thousands of users — without double-bookings, deadlocks, or data corruption.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q2 EASY</span> What is the check-then-act race condition?</div>
+  <div class="qa-answer"><p>It's when a system reads a resource's state (<em>check</em>) and then modifies it (<em>act</em>) in two separate steps, without holding exclusive access between those steps. Another thread or process can modify the resource between the check and the act, causing inconsistent results. Classic example: two threads both see a seat as "AVAILABLE", both decide to book it, and both successfully write "BOOKED" — resulting in a double-booking.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q3 EASY</span> What is SELECT … FOR UPDATE?</div>
+  <div class="qa-answer"><p><code>SELECT ... FOR UPDATE</code> is a PostgreSQL statement that reads rows and places an exclusive row-level lock on them within the current transaction. Any other transaction that tries to <code>SELECT ... FOR UPDATE</code> or <code>UPDATE</code> those same rows will block (wait) until the first transaction commits or rolls back. This converts the check-then-act into a single atomic operation under exclusive access.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q4 EASY</span> What is a deadlock? How does ParallelLock prevent it?</div>
+  <div class="qa-answer"><p>A deadlock occurs when two or more transactions each hold a lock that the other needs, so both wait forever. Example: Transaction A holds lock on seat 10 and waits for seat 20; Transaction B holds lock on seat 20 and waits for seat 10 — they wait for each other forever.<br><br>ParallelLock prevents it with <code>ORDER BY seat_id ASC</code> before acquiring locks. When all transactions always request locks in the same ascending order, cyclic wait graphs cannot form. This is mathematically guaranteed.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q5 EASY</span> What is the booking status lifecycle?</div>
+  <div class="qa-answer">
+    <p><strong>CREATED</strong> → seat is held (8-min countdown)
+    <br><strong>PAYMENT_PENDING</strong> → user has submitted payment, gateway being called
+    <br><strong>CONFIRMED</strong> → payment succeeded, seat permanently booked (terminal)
+    <br><strong>EXPIRED</strong> → 8-minute hold ran out before payment (terminal)
+    <br><strong>CANCELLED</strong> → user cancelled before paying
+    <br><strong>REFUND_PENDING</strong> → payment succeeded but seat was stolen mid-payment; refund in progress
+    <br><strong>REFUNDED</strong> → refund confirmed by gateway (terminal)</p>
+  </div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q6 EASY</span> How are passwords stored securely?</div>
+  <div class="qa-answer"><p>Passwords are hashed with <strong>Argon2id</strong> — the winner of the Password Hashing Competition and the OWASP-recommended algorithm. The hash includes a random salt (auto-generated by the library) and is stored in the <code>password_hash</code> column. Plaintext passwords are never stored, logged, or transmitted after the initial registration request.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q7 EASY</span> What is JWT and why is it used instead of sessions?</div>
+  <div class="qa-answer"><p>JSON Web Token (JWT) is a self-contained signed token encoding user identity and claims. It's used instead of sessions because it's <strong>stateless</strong>: the server verifies the cryptographic signature on every request without querying a session store or Redis. This eliminates external dependencies and scales horizontally without shared state. The token is signed with HS256 using a minimum 32-character secret.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q8 EASY</span> What is an idempotency key and why does ParallelLock need one?</div>
+  <div class="qa-answer"><p>An idempotency key is a unique token (UUIDv4) generated by the client and sent with a request. If the same request is submitted multiple times (network retry, double-tap), the server uses the key to detect the duplicate and return the original response without creating a new booking. Without this, a user on a slow mobile connection who taps "Book" twice would get two charges for the same seats.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q9 EASY</span> What does "passive expiry on the database clock" mean?</div>
+  <div class="qa-answer"><p>Instead of running a cron job every second to find and release expired holds, ParallelLock includes expiry directly in every SQL query: <code>OR (status = 'HELD' AND hold_expires_at &lt;= now())</code>. When a seat's hold time is past, the very next query that touches that seat automatically treats it as AVAILABLE and can re-assign it. The database clock (<code>now()</code>) is the single source of truth — no cron, no lag, no race.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q10 EASY</span> What is the booking_items table for?</div>
+  <div class="qa-answer"><p><code>booking_items</code> is an immutable line-item ledger. When a hold is created, one row is inserted per seat with the seat's price at that moment. These rows are <strong>never updated</strong>. Even if the booking is later cancelled or the show_seats change status, the booking_items preserve the exact financial record and seat details — enabling a reliable "My Tickets" view and audit trail.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q11 EASY</span> Why are prices stored in cents (integer) instead of decimals?</div>
+  <div class="qa-answer"><p>Floating-point numbers (like JavaScript's <code>number</code> type or SQL's <code>FLOAT</code>) cannot represent many decimal fractions exactly. For example, <code>0.1 + 0.2 === 0.30000000000000004</code> in JavaScript. Financial calculations with floating-point can accumulate rounding errors. Storing prices as integers in cents (₹499 → 49900) eliminates this entirely — all arithmetic is exact integer math.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q12 EASY</span> What tests does ParallelLock have?</div>
+  <div class="qa-answer">
+    <p><strong>78 integration tests across 13 test files:</strong></p>
+    <ul>
+      <li>Auth (register, login, JWT)</li>
+      <li>Booking concurrency (100 and 500 parallel users, deadlock reversal)</li>
+      <li>Payment state machine (three-phase, webhooks, refunds)</li>
+      <li>Sweeper (concurrent runOnce, advisory lock isolation)</li>
+      <li>Rate limiting (NAT test, brute-force, Retry-After, window reset)</li>
+      <li>Deployment (health/ready endpoints, production secret guard, /api/v1 routing)</li>
+      <li>Invariant verification (zero data corruption after all stress tests)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q13 EASY</span> What is the connection pool and why does its size matter?</div>
+  <div class="qa-answer"><p>PostgreSQL connections are expensive to create (each one forks a backend process). A connection pool maintains a fixed number of reusable connections (default: 10 in <code>pg.Pool</code>). When all 10 connections are busy, new requests queue until one becomes free. Under 200 concurrent requests, 190 requests wait in queue — this is normal and expected. The 2-second <code>lock_timeout</code> circuit-breaker ensures no request waits so long that it stalls the queue.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q14 EASY</span> What is CORS and how is it configured?</div>
+  <div class="qa-answer"><p>CORS (Cross-Origin Resource Sharing) is a browser security policy that blocks JavaScript on one origin (e.g., <code>frontend.example.com</code>) from calling APIs on a different origin (e.g., <code>api.example.com</code>). ParallelLock reads <code>CLIENT_ORIGIN</code> from environment variables and allows only that specific origin in the <code>Access-Control-Allow-Origin</code> header — blocking all other origins. In development, this is <code>http://localhost:5173</code>; in production, your deployed frontend URL.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q15 EASY</span> What do the invariant checks verify?</div>
+  <div class="qa-answer">
+    <p>Three database consistency rules, all of which must return 0 rows at all times:</p>
+    <ol>
+      <li><strong>No orphaned BOOKED seats</strong>: Every seat with status=BOOKED must belong to a booking with status=CONFIRMED</li>
+      <li><strong>No count mismatch</strong>: Every CONFIRMED booking's seat count must exactly equal its BOOKED show_seats rows</li>
+      <li><strong>No ghost holds</strong>: No HELD seat can belong to a booking that is EXPIRED, CANCELLED, REFUNDED, or REFUND_PENDING</li>
+    </ol>
+    <p>These are run after every concurrency stress test to prove the system is data-corruption-free.</p>
+  </div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q16 EASY</span> What is the system architecture (layer structure)?</div>
+  <div class="qa-answer">
+    <p>ParallelLock uses a strict 4-layer architecture:</p>
+    <ul>
+      <li><strong>Routes</strong> (<code>*.routes.js</code>) — URL paths + middleware mounting (rate limiters, auth)</li>
+      <li><strong>Controllers</strong> (<code>*.controller.js</code>) — HTTP request parsing, response formatting, error catching</li>
+      <li><strong>Services</strong> (<code>*.service.js</code>) — Business logic, state machine transitions, coordination across repositories</li>
+      <li><strong>Repositories</strong> (<code>*.repo.js</code>) — <strong>Only layer that contains SQL</strong>. Interacts directly with the database.</li>
+    </ul>
+    <p>This separation means SQL changes never require touching controllers, and business logic changes never require touching SQL queries.</p>
+  </div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q17 EASY</span> What is the MOCK_PAYMENT_MODE environment variable?</div>
+  <div class="qa-answer"><p><code>MOCK_PAYMENT_MODE=sync</code> (default): The payment gateway call in Phase B immediately returns success synchronously, simulating an instant payment confirmation. This makes testing deterministic. <code>MOCK_PAYMENT_MODE=async</code>: The gateway call returns "pending" and a webhook must be sent to <code>POST /api/v1/webhooks/payments</code> to trigger finalization — simulating real-world async payment gateways. In production, this would be replaced with a real Stripe/Razorpay integration.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q18 EASY</span> What happens when the Node.js server receives SIGTERM?</div>
+  <div class="qa-answer"><p>SIGTERM is the signal sent by Kubernetes, Render, or Docker when shutting down a container. ParallelLock's <code>server.js</code> registers a handler that: (1) stops the background sweeper's interval so no new sweep cycles begin; (2) calls <code>server.close()</code> to stop accepting new HTTP connections; (3) waits for existing connections to drain. This ensures no in-flight requests are killed mid-transaction and PostgreSQL connections are released cleanly.</p></div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q19 EASY</span> What do GET /health and GET /ready return?</div>
+  <div class="qa-answer">
+    <p><strong>GET /health</strong> (Liveness — always 200 if process is running):</p>
+    <pre style="background:#f8fafc;color:#0f172a;border:1px solid #e2e8f0;font-size:8.5pt;padding:8px;border-radius:4px;">{"status": "ok", "uptime": 124, "timestamp": "2026-11-24T10:30:00.000Z"}</pre>
+    <p><strong>GET /ready</strong> (Readiness — queries DB):</p>
+    <pre style="background:#f8fafc;color:#0f172a;border:1px solid #e2e8f0;font-size:8.5pt;padding:8px;border-radius:4px;">{"status": "ready", "db": "connected", "timestamp": "2026-11-24T10:30:00.000Z"}  // 200
+{"status": "not_ready", "db": "disconnected", "error": "...", "timestamp": "..."}   // 503</pre>
+  </div>
+</div>
+
+<div class="qa-card easy">
+  <div class="qa-question"><span class="q-badge">Q20 EASY</span> Why use ESM (import/export) instead of CommonJS (require)?</div>
+  <div class="qa-answer"><p>Node.js 20 supports native ES Modules without Babel or ts-jest transforms. ESM enables cleaner static imports, better tree-shaking, and direct compatibility with Vitest (which is ESM-first). The <code>"type": "module"</code> in <code>package.json</code> activates ESM mode. CommonJS requires <code>require()</code> which is synchronous and doesn't support top-level <code>await</code> — needed for async configuration loading.</p></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 13: INTERMEDIATE Q&A
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 13</div>
+  <h1>Intermediate Q&amp;A — Architecture &amp; Trade-offs (Q21–Q40)</h1>
+  <div class="ch-desc">Architecture decisions, trade-offs, and design justifications</div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q21 MEDIUM</span> Why not use Redis Redlock for seat locking?</div>
+  <div class="qa-answer"><p>Redis adds external infrastructure, network hops, and distributed split-brain risks. If Redis goes down, the entire booking system loses its locking mechanism. PostgreSQL is <em>already</em> our system of record — using <code>SELECT ... FOR UPDATE</code> with numerical seat ordering and 2-second lock timeout gives strict ACID isolation, zero double-booking, and zero deadlocks natively, without adding a second distributed system to manage and monitor.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q22 MEDIUM</span> Why three phases for payments instead of one transaction?</div>
+  <div class="qa-answer"><p>Payment gateways take 1–10 seconds to respond. If we call an external API inside a database transaction, we hold database row locks open for those seconds. With 10 pooled connections and 200 concurrent users, all connections stall within 2 seconds — total server lockout. Three-phase separates concerns: Phase A (50ms) locks state to PAYMENT_PENDING; Phase B calls the gateway outside any transaction (no locks held); Phase C (50ms) finalizes. The database is locked for under 100ms total.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q23 MEDIUM</span> What transaction isolation level does ParallelLock use and why?</div>
+  <div class="qa-answer"><p><strong>Read Committed</strong> with explicit <code>SELECT ... FOR UPDATE</code> row-level locks. We chose this over Serializable isolation because: Serializable detects conflicts <em>retrospectively</em> and throws serialization failures (error code 40001), requiring application-level retry loops that increase latency and complexity. Read Committed with explicit pessimistic locks gives us the same correctness guarantee with significantly lower overhead — locks only the specific rows being modified and no retry loops needed.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q24 MEDIUM</span> How does the idempotency key work at the database level?</div>
+  <div class="qa-answer"><p>The <code>idempotency_key</code> column has a unique index on <code>(user_id, idempotency_key)</code>. When a hold request arrives: (1) The user row is locked with <code>FOR UPDATE</code> to serialize concurrent requests from the same user. (2) The system checks if a booking already exists with that key for that user. (3) If yes, it returns the existing booking with header <code>Idempotency-Replayed: true</code> and status 200. (4) If no, it creates a new booking. The user lock in step 1 prevents two simultaneous requests with the same key from both passing the existence check.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q25 MEDIUM</span> How does webhook deduplication work?</div>
+  <div class="qa-answer"><p>Payment gateways often retry webhook delivery if they don't receive a 200 response within a timeout. This means the same event can arrive multiple times. ParallelLock handles this with: <code>INSERT INTO payment_events (provider_event_id, payload) VALUES ($1, $2) ON CONFLICT DO NOTHING</code>. This runs in the SAME atomic transaction as the seat status update. If the event is already in the table (conflict), the insert returns 0 rows, the entire transaction continues, and we return 200 OK — idempotent with no side effects.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q26 MEDIUM</span> What happens when two simultaneous runOnce() sweeper calls fire?</div>
+  <div class="qa-answer"><p>Both instances try <code>pg_try_advisory_lock(987654321)</code>. PostgreSQL grants the lock to exactly one — returns <code>true</code>. The other gets <code>false</code> immediately (non-blocking — no queuing). The loser immediately returns without doing any work. The winner runs the full sweep, then explicitly unlocks. This is exactly how the test for V0 requirement 2 works: two parallel <code>runOnce()</code> calls fire simultaneously; the invariants check verifies the sweep body ran exactly once.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q27 MEDIUM</span> Why use FOR UPDATE SKIP LOCKED in the sweeper?</div>
+  <div class="qa-answer"><p><code>SELECT ... FOR UPDATE SKIP LOCKED</code> skips rows that are already locked by another transaction, instead of waiting for them. In the sweeper, this means: if a customer's payment is currently being finalized (their booking row is locked by Phase C), the sweeper gracefully skips that booking during this sweep cycle and processes the next unlocked one. Without SKIP LOCKED, the sweeper would queue behind active payment transactions, potentially causing unnecessary delays.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q28 MEDIUM</span> Why does the login rate limiter only count failed attempts?</div>
+  <div class="qa-answer"><p>Counting all login attempts penalizes legitimate users. During a popular movie ticket release, hundreds of students on a shared campus IP might successfully log in within minutes — a total-attempt limiter would quickly block the entire campus. By tracking only failed attempts (responses with 401 Invalid Credentials), legitimate users authenticate freely. Only actual brute-force attacks (many wrong passwords) get blocked. A successful login also resets the email's failure counter immediately.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q29 MEDIUM</span> What is the Lazy Crash Recovery mechanism?</div>
+  <div class="qa-answer"><p>When a booking is in PAYMENT_PENDING state, it means Phase B (the external gateway call) is in progress. If the server crashes during Phase B, the booking stays PAYMENT_PENDING forever without recovery. Lazy Crash Recovery detects this: when a booking is read or its payment is retried and <code>payment_started_at &gt; 2 minutes</code> under row lock, the system automatically transitions: if the hold is still valid → CREATED (user can retry payment); if the hold expired → EXPIRED (booking is dead). This eliminates orphaned PAYMENT_PENDING states without any scheduled job.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q30 MEDIUM</span> What is the TRUST_PROXY setting and why is it dangerous if wrong?</div>
+  <div class="qa-answer"><p><code>TRUST_PROXY</code> tells Express how many reverse proxies sit in front of it. If set to 1, Express trusts the rightmost IP in the <code>X-Forwarded-For</code> header as the real client IP. <strong>Too low</strong>: all requests appear to come from the proxy's IP (127.0.0.1) — rate limiting by IP is useless. <strong>Too high or trusting default</strong>: attackers can spoof <code>X-Forwarded-For: 1.2.3.4</code> in their HTTP request to impersonate any IP address, completely bypassing IP-based rate limits. ParallelLock reads it as an integer and only applies it when explicitly set.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q31 MEDIUM</span> How does the multi-stage Dockerfile reduce security risk?</div>
+  <div class="qa-answer"><p>Stage 1 (deps) installs all packages including native build tools (gcc, python for Argon2 compilation). Stage 2 (runner) copies only the compiled <code>node_modules</code> and application source — no build tools, no npm cache, no package.json secrets. Additionally, Stage 2 runs as <code>USER node</code> (UID 1000) instead of root. Even if an attacker exploits the Node.js application, they cannot install system packages or access files outside the container's workdir.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q32 MEDIUM</span> Why does the RateLimitStore use an injectable clock (now())?</div>
+  <div class="qa-answer"><p>Rate limit tests that use real time (<code>Date.now()</code>) would need to actually wait for time windows to pass — making a 1-minute window test take 1 real minute. With an injectable clock, tests can pass in a fake <code>now()</code> function: start at timestamp 0, advance it by 60,000ms in a single line of code, and instantly verify that the window reset. This makes rate limit tests deterministic, fast, and reliable without any <code>setTimeout</code> or <code>sleep()</code> calls.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q33 MEDIUM</span> What is LRU eviction in the InMemoryRateLimitStore and why is it necessary?</div>
+  <div class="qa-answer"><p>An attacker could make millions of requests with unique IP addresses or rotating email addresses, each creating a new entry in the rate limit Map — exhausting server memory. The store caps the Map at 100,000 entries. When a new key would exceed this limit, the oldest entry (Map insertion order) is deleted first. This bounds memory usage regardless of attacker behavior. For multi-instance deployments, this store is per-process — a Redis store would be needed to share limits across instances.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q34 MEDIUM</span> How does the CI/CD pipeline prevent broken deployments?</div>
+  <div class="qa-answer"><p>The GitHub Actions workflow (triggered on every push to main) runs: (1) <code>npm ci</code> — deterministic dependency install; (2) <code>npm run db:migrate</code> — applies migrations against a real postgres:16-alpine service container; (3) <code>npm run seed</code> — seeds test data; (4) <code>npx eslint src/</code> — lint check; (5) <code>npm test</code> — all 78 Vitest integration tests; (6) <code>cd client &amp;&amp; npm run build</code> — verifies frontend builds without errors. If any step fails, the pipeline exits non-zero and the deploy is blocked.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q35 MEDIUM</span> Why use Helmet.js and what does it protect against?</div>
+  <div class="qa-answer"><p>Helmet.js sets several security-related HTTP response headers: <code>Content-Security-Policy</code> (prevents XSS by restricting script sources), <code>X-Frame-Options</code> (prevents clickjacking), <code>X-Content-Type-Options: nosniff</code> (prevents MIME-type sniffing), <code>Strict-Transport-Security</code> (forces HTTPS), and removes the <code>X-Powered-By: Express</code> header (doesn't advertise the framework to attackers). It's a production best-practice middleware that takes one line to enable.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q36 MEDIUM</span> Why does the webhook handler use express.raw() instead of express.json()?</div>
+  <div class="qa-answer"><p>HMAC-SHA256 signature verification requires the exact raw byte sequence of the request body — the same bytes the payment gateway signed. If the body goes through <code>express.json()</code> first, it gets parsed into a JavaScript object and re-serialized, which may change whitespace, key ordering, or encoding — invalidating the signature. <code>express.raw({ type: 'application/json' })</code> gives the handler a raw <code>Buffer</code> of the exact bytes as received, enabling reliable HMAC comparison.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q37 MEDIUM</span> What is the purpose of the payment_events table vs. the payments table?</div>
+  <div class="qa-answer"><p><code>payments</code> is a financial ledger tracking payment attempts initiated by our system (we create a row when we begin charging). <code>payment_events</code> is a webhook deduplication table tracking external events sent to us by the payment gateway. A single payment attempt can generate multiple webhook events (payment.succeeded, payment.refunded, etc.). The <code>provider_event_id</code> unique index on <code>payment_events</code> ensures each webhook event is processed exactly once.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q38 MEDIUM</span> How does the migration runner ensure safety during CD pipelines?</div>
+  <div class="qa-answer"><p>The migration runner: (1) Creates <code>schema_migrations</code> table if not exists (idempotent); (2) Lists all <code>.sql</code> files in <code>src/db/migrations/</code> alphabetically; (3) For each file, checks if its filename is already in <code>schema_migrations</code> — skips if yes (idempotent re-runs); (4) Wraps execution in <code>BEGIN; &lt;SQL&gt;; INSERT INTO schema_migrations; COMMIT;</code> — if the SQL errors, <code>ROLLBACK</code> runs automatically and the runner calls <code>process.exit(1)</code>, blocking the CD pipeline before broken instances start.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q39 MEDIUM</span> Why does the React client use _redirects and nginx.conf?</div>
+  <div class="qa-answer"><p>React uses client-side routing (react-router-dom). When a user navigates directly to <code>/shows/42</code> or refreshes the page on that URL, the browser requests that path from the web server. Without a rewrite rule, the server returns 404 (there's no static file at that path). The <code>nginx.conf</code> rule <code>try_files $uri $uri/ /index.html</code> and the <code>_redirects</code> file rule <code>/* /index.html 200</code> tell the server to always serve <code>index.html</code> for any unknown path, letting React's router handle the URL client-side.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">Q40 MEDIUM</span> What does the Autocannon benchmark tool measure and why was it chosen?</div>
+  <div class="qa-answer"><p>Autocannon is a Node.js HTTP load testing tool that sends configurable concurrent connections for a set duration, measuring requests per second, latency percentiles (p50, p97.5, p99), error counts, and timeouts. It was chosen because: (1) it's Node.js-native — no Java/Python dependency; (2) it provides accurate percentile tracking with HDR histograms; (3) it's added as a devDependency only (zero production impact); (4) it integrates cleanly with our benchmark scripts for automated 3-run median reporting.</p></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 14: ADVANCED Q&A
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 14</div>
+  <h1>Advanced SDE Q&amp;A — Concurrency &amp; Distributed Systems (Q41–Q60)</h1>
+  <div class="ch-desc">The questions that separate senior engineers from juniors</div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q41 HARD</span> Why use PostgreSQL row locks instead of MongoDB or DynamoDB?</div>
+  <div class="qa-answer"><p>NoSQL document stores lack native multi-row ACID transactions with fine-grained row locks across relational tables (<code>show_seats</code>, <code>bookings</code>, <code>payments</code>). In MongoDB, optimistic concurrency control (version fields) under high contention causes massive retry storms where 99% of requests abort and retry repeatedly. In DynamoDB, transactions are limited to 25 items and add significant latency. In PostgreSQL, <code>SELECT ... FOR UPDATE</code> queues competing transactions deterministically — exactly 1 transaction wins and the rest fail fast with 409 within milliseconds.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q42 HARD</span> How do you mathematically prove deadlocks cannot occur?</div>
+  <div class="qa-answer"><p>Deadlocks require Coffman's cyclic wait condition: Transaction A holds Resource X and waits for Resource Y, while Transaction B holds Resource Y and waits for Resource X. For a cycle to form, two transactions must request the same two locks in opposite orders.<br><br>ParallelLock enforces a strict global acquisition order: <code>ORDER BY seat_id ASC</code>. All transactions always request seat_id=10 before seat_id=20, never the reverse. For a cycle to exist, one transaction would need to request 10 then 20, while another requests 20 then 10 — but the ORDER BY constraint makes this physically impossible. <strong>No cycle can form = deadlocks mathematically impossible.</strong></p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q43 HARD</span> What happens if a node crashes mid-transaction (during Phase B)?</div>
+  <div class="qa-answer"><p>PostgreSQL automatically rolls back any uncommitted transaction when the TCP connection drops, instantly releasing all row locks. During Phase B specifically, the booking is in PAYMENT_PENDING state with <code>payment_started_at</code> set, but no DB transaction is open (Phase B runs outside transactions). When the server restarts, the next access to that booking triggers Lazy Crash Recovery: if <code>payment_started_at &gt; 2 minutes</code>, the booking is reverted to CREATED (if hold valid) or EXPIRED (if hold expired) — completely eliminating orphaned PAYMENT_PENDING states.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q44 HARD</span> What if the payment gateway sends a SUCCESS webhook after a seat is stolen by another user?</div>
+  <div class="qa-answer"><p>Phase C of <code>finalizePayment</code> handles this atomically. Inside the transaction, it locks the booking row and the show_seat rows (<code>FOR UPDATE</code>). Then it checks: <code>WHERE booking_id = $bookingId AND status = 'HELD'</code>. Because another user has taken the seat (status is BOOKED under a different booking_id), this check returns 0 rows. The transaction transitions the booking to REFUND_PENDING and commits. Outside the transaction, the payment service issues an automated refund. The sweeper retries if the gateway is temporarily busy (bounded at 5 attempts). Result: zero double-booking, customer automatically refunded.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q45 HARD</span> What if 10,000 users simultaneously contend for 1 seat — won't the connection pool exhaust?</div>
+  <div class="qa-answer">
+    <p><strong>No, because of three defensive layers:</strong></p>
+    <ol>
+      <li><strong>Fast First Loser:</strong> Transaction 1 locks seat_id=42 and marks it HELD within milliseconds. Transaction 2 acquires the lock next, reads status=HELD, returns 0 rows, and immediately rolls back with 409 — this takes under 1ms. Each subsequent transaction does the same. The lock is never held long.</li>
+      <li><strong>Lock Timeout Circuit Breaker:</strong> Any transaction that cannot acquire the lock within 2 seconds receives error 55P03 from PostgreSQL, which the app catches and returns as 503 Service Unavailable. The connection is freed immediately.</li>
+      <li><strong>Rate Limiter:</strong> Authenticated hold requests are limited to 10/minute per user. Bot scripts get 429 at the HTTP layer before reaching the database connection pool.</li>
+    </ol>
+    <p>In measured benchmarks with 200 concurrent requests on 1 seat (10x connection pool), the pool handled all requests cleanly with zero 503s and zero 500s.</p>
+  </div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q46 HARD</span> What if 5 container instances run simultaneously during a rolling deploy — double sweeping?</div>
+  <div class="qa-answer"><p>PostgreSQL Session-Level Advisory Locks resolve this. When all 5 instances' sweepers fire simultaneously: each calls <code>pg_try_advisory_lock(987654321)</code> on its dedicated client connection. PostgreSQL grants the lock to exactly ONE instance and returns <code>false</code> to the other four immediately (non-blocking). The four losers abort the sweep cycle instantly. The one winner completes the sweep, runs <code>pg_advisory_unlock</code> in a <code>finally</code> block, and releases the client. Even if the winning container crashes mid-sweep, PostgreSQL automatically releases the advisory lock when the TCP connection drops.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q47 HARD</span> What is a timing attack on HMAC and how does timingSafeEqual prevent it?</div>
+  <div class="qa-answer"><p>Standard string comparison (<code>===</code>) short-circuits on the first mismatched character — if character 1 differs, it returns immediately without checking characters 2-N. By measuring response times with microsecond precision, an attacker can send many requests with slightly different first bytes, observe which response was slightly slower (meaning character 1 matched and comparison continued), then repeat for each byte. This reveals the secret character by character.<br><br><code>crypto.timingSafeEqual(a, b)</code> always compares all bytes and always takes the same amount of time regardless of where mismatches occur — making byte-by-byte timing measurement impossible. The length check before the comparison is also critical: buffers of different lengths must not be compared (Node.js throws if lengths differ).</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q48 HARD</span> How would you scale ParallelLock to 10 million users?</div>
+  <div class="qa-answer">
+    <p>Current single-instance bottlenecks and their solutions at scale:</p>
+    <ul>
+      <li><strong>Connection pool (10 conns):</strong> → PgBouncer connection pooler in front of PostgreSQL, allowing thousands of app connections to share a small DB pool efficiently</li>
+      <li><strong>Read throughput:</strong> → Read replicas for catalog/seat map reads (GET /shows/:id/seats), with writes still going to primary</li>
+      <li><strong>Rate limiting store:</strong> → Replace InMemoryRateLimitStore with Redis store (interface already pluggable via RateLimitStore)</li>
+      <li><strong>Advisory locks:</strong> → Already work across multiple instances — no change needed</li>
+      <li><strong>Hot seat contention:</strong> → Queue-based reservation system (SQS/Cloud Tasks) for ultra-high-demand drops, with seat locking in queue workers</li>
+      <li><strong>Write bottleneck:</strong> → Partitioning show_seats by show_id; each show's seats go to their own partition for independent locking</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q49 HARD</span> Why use pg_try_advisory_lock (session-level) instead of pg_try_advisory_xact_lock (transaction-level)?</div>
+  <div class="qa-answer"><p>Transaction-level advisory locks (<code>pg_try_advisory_xact_lock</code>) are automatically released when the transaction commits or rolls back. The sweeper runs multiple separate transactions (expire batch, recover batch, refund batch) — using xact-level would release the lock between batches, allowing another instance to grab it mid-sweep and double-process records.<br><br>Session-level advisory locks (<code>pg_try_advisory_lock</code>) persist for the entire client connection lifetime, spanning all transactions. The sweeper holds the lock from before the first sweep query until after the last query, then explicitly unlocks. This guarantees true mutual exclusion across the entire sweep cycle.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q50 HARD</span> What is the difference between Serializable isolation and Read Committed with FOR UPDATE?</div>
+  <div class="qa-answer">
+    <p><strong>Serializable Isolation:</strong> PostgreSQL tracks all read/write dependencies. If two transactions would have produced a different result if they had run serially, one is aborted with error code 40001 (serialization failure). The app must catch this and retry the entire transaction. Under high contention (1000 users on 1 seat), 999 transactions abort and retry repeatedly — O(N²) retry storm, catastrophic latency.</p>
+    <p><strong>Read Committed + FOR UPDATE:</strong> No retrospective conflict detection. The lock is acquired upfront. Transaction B queues behind A. When A commits HELD, B sees the updated status and cleanly returns 0 rows + 409. No retries needed — O(N) clean failures. Exactly what we want.</p>
+  </div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q51 HARD</span> What if the database runs out of connections entirely during a ticket drop?</div>
+  <div class="qa-answer"><p>pg.Pool's default is 10 connections. If all 10 are busy and a new request arrives, it queues in the pool's internal wait list. The <code>idleTimeoutMillis</code> (default 10s) and <code>connectionTimeoutMillis</code> settings control how long requests wait before receiving "pool exhausted" errors. ParallelLock's 2-second <code>lock_timeout</code> ensures no connection is held waiting for a lock for more than 2 seconds — this bounds how long each connection is consumed. At scale, PgBouncer would sit in front of PostgreSQL to multiplex thousands of application connections onto a smaller database pool, with PgBouncer's queue absorbing the surge.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q52 HARD</span> How does FOR UPDATE interact with hot standby PostgreSQL read replicas?</div>
+  <div class="qa-answer"><p><code>SELECT ... FOR UPDATE</code> can ONLY run on the primary (write) PostgreSQL instance. Hot standbys (read replicas) are read-only — they reject any locking writes. This means ALL booking writes (holds, payment updates, webhooks) must route to the primary. Catalog reads (<code>GET /shows</code>, <code>GET /shows/:id/seats</code>) can be routed to replicas. ParallelLock uses a single <code>DATABASE_URL</code> pointing to the primary. At scale, a separate <code>READ_DATABASE_URL</code> for the replica would be introduced for the read path only.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q53 HARD</span> What is the poison pill problem in the refund sweeper and how is it solved?</div>
+  <div class="qa-answer"><p>A "poison pill" message is one that repeatedly causes processing to fail — without bounds, it loops forever and blocks or degrades the entire queue. In the sweeper context: if a refund call to the payment gateway throws an exception every time (gateway permanently down, booking has wrong state, etc.), the sweeper retries that booking in every 30-second cycle, consuming rate limit quota, filling logs, and potentially hiding real issues.<br><br>Migration 007 added <code>refund_attempts INT NOT NULL DEFAULT 0</code> to bookings. The sweeper query filters: <code>WHERE refund_attempts &lt; 5</code>. Each failed attempt increments the counter. At 5, the booking is permanently excluded from sweeper retries and an urgent log line is emitted for manual investigation. The poison pill cannot loop forever.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q54 HARD</span> What if a successful webhook arrives BEFORE the client's synchronous pay response returns?</div>
+  <div class="qa-answer"><p>Both the synchronous Phase C handler and the webhook handler call the same method: <code>paymentService.finalizePayment(bookingId)</code>. This method is fully idempotent. If the webhook finishes first (concurrent execution): it locks the booking row, marks seats BOOKED, inserts the payment event, commits the booking as CONFIRMED. When the client's Phase C subsequently runs, it acquires the same booking row lock and reads status = CONFIRMED. It detects the booking is already finalized and returns the confirmed booking with <code>replayed: true</code>. No duplicate charges, no errors.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q55 HARD</span> Can you have a deadlock between the user row lock and the seat row lock?</div>
+  <div class="qa-answer"><p>Theoretically yes — if one transaction locks user then seats, and another locks seats then user. ParallelLock prevents this by maintaining consistent lock ordering: <strong>user lock first, then seat locks in ascending order</strong>. The hold flow always does: (1) <code>SELECT FROM users FOR UPDATE</code> (user lock), (2) <code>SELECT FROM show_seats FOR UPDATE ORDER BY seat_id ASC</code> (seat locks). No transaction in the system acquires a seat lock before a user lock. Consistent ordering across all transaction types prevents cycles.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q56 HARD</span> How would you implement Redis-backed rate limiting without changing middleware logic?</div>
+  <div class="qa-answer">
+    <p>The <code>RateLimitStore</code> interface requires three methods: <code>get(key)</code>, <code>increment(key, windowMs)</code>, <code>reset(key)</code>. A Redis implementation would use:</p>
+    <pre style="background:#0f172a;color:#e2e8f0;padding:10px;border-radius:4px;font-size:8.5pt;">// increment(key, windowMs) using Redis atomic MULTI/EXEC:
+const pipeline = redis.multi();
+pipeline.incr(key);           // Atomic increment
+pipeline.pexpire(key, windowMs); // Set expiry if not set
+const [count] = await pipeline.exec();
+return { count, resetAt: Date.now() + windowMs };</pre>
+    <p>The middleware code doesn't change — just swap the store instance. This is exactly why the interface was designed with these three methods and the atomic increment requirement.</p>
+  </div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q57 HARD</span> What if a migration fails halfway through on a production database?</div>
+  <div class="qa-answer"><p>Each migration file runs inside <code>BEGIN; &lt;SQL&gt;; INSERT INTO schema_migrations(filename); COMMIT;</code>. If the SQL inside errors, the entire block is automatically rolled back — the schema is left exactly as it was before the migration started. The filename is NOT inserted into <code>schema_migrations</code>. The runner calls <code>process.exit(1)</code>, which: (1) fails the GitHub Actions CI step; (2) causes the CD pipeline (Render/Railway) to abort the deploy; (3) no new container instances start. The old version continues serving traffic with the unmodified schema.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q58 HARD</span> Why is there both a sweeper AND passive expiry — isn't one redundant?</div>
+  <div class="qa-answer"><p>They serve completely different purposes and neither is redundant: <strong>Passive expiry</strong> (<code>hold_expires_at &lt;= now()</code> in queries) is the correctness guarantee. It ensures that regardless of what any background job does, no expired hold can ever block a new booking. It runs on every single booking query. <strong>The sweeper</strong> is a housekeeping optimization. Its jobs are: (a) release seats from expired bookings so show_seats.status is "AVAILABLE" for read queries that filter by status; (b) recover crashed PAYMENT_PENDING bookings; (c) retry failed refunds. If the sweeper stops entirely, correctness is maintained. But show_seats would accumulate stale HELD rows that slow down status=AVAILABLE reads.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q59 HARD</span> What is the unref() on the cleanup timer and why is it needed?</div>
+  <div class="qa-answer"><p>Node.js keeps the event loop alive as long as there are pending timers. The InMemoryRateLimitStore runs a cleanup interval (every few minutes) to remove expired keys. Without <code>unref()</code>, this timer would prevent the Node.js process from exiting gracefully when <code>server.close()</code> is called — tests would hang forever waiting for the timer. <code>timer.unref()</code> tells Node.js "if this timer is the only thing keeping the event loop running, it's okay to exit anyway." The timer still fires normally during the application's lifetime, but doesn't block shutdown.</p></div>
+</div>
+
+<div class="qa-card hard">
+  <div class="qa-question"><span class="q-badge">Q60 HARD</span> What observability would you add in a production deployment?</div>
+  <div class="qa-answer">
+    <ul>
+      <li><strong>Structured logging</strong> — Replace <code>console.log</code> with pino/winston, outputting JSON to stdout so log aggregators (Datadog, Loki) can parse fields</li>
+      <li><strong>Prometheus metrics</strong> — Expose <code>GET /metrics</code>: booking_hold_total, booking_error_total by error_code, payment_latency_histogram, sweeper_last_run_seconds</li>
+      <li><strong>Alert on 503s</strong> — Any 503 (lock timeout) means contention is approaching pool limits; alert and autoscale</li>
+      <li><strong>Alert on REFUND_PENDING age</strong> — If any booking has been REFUND_PENDING for > 10 minutes, PagerDuty alert for manual investigation</li>
+      <li><strong>Distributed tracing</strong> — OpenTelemetry spans: HTTP request → DB queries → gateway calls, with trace IDs in error responses</li>
+      <li><strong>pg_stat_activity monitoring</strong> — Track lock wait times and long-running queries in real time</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 15: WHAT IF SCENARIOS
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 15</div>
+  <h1>"What If" Scenarios — 15 Edge Cases Fully Answered</h1>
+  <div class="ch-desc">Every disaster scenario that could happen in production — and exactly how ParallelLock handles it</div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The database goes completely down during a booking?</div>
+  <div class="whatif-answer">
+    <strong>During a hold creation:</strong> The PostgreSQL connection throws a connection error. The service layer catches it and the Express error handler returns 503 Service Unavailable. The booking was never committed — no half-written data exists. The seat remains AVAILABLE.<br><br>
+    <strong>During Phase B (between Phase A and C):</strong> The booking is in PAYMENT_PENDING with payment_started_at set. When the DB recovers and the booking is accessed, Lazy Crash Recovery detects the stale PAYMENT_PENDING state and reverts it.<br><br>
+    <strong>GET /ready</strong> returns 503 immediately (SELECT 1 fails), causing the load balancer to stop routing traffic to this instance within seconds.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The payment gateway never responds — it hangs for 60 seconds?</div>
+  <div class="whatif-answer">
+    Phase B runs outside any database transaction — no DB connections are held during this hang. The gateway client should have its own HTTP timeout (e.g., 30 seconds) set, returning an error after that. The booking stays in PAYMENT_PENDING. When the timeout fires: the payment is marked as FAILED. Lazy Crash Recovery (triggered by the next access) reverts the booking to CREATED or EXPIRED. If MOCK_PAYMENT_MODE=async, the booking stays PAYMENT_PENDING until a webhook or recovery timeout fires.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>500 users book the same seat simultaneously (not 200)?</div>
+  <div class="whatif-answer">
+    The behavior is identical — just 300 more 409 responses. The first transaction acquires the seat lock in microseconds. All subsequent transactions queue, see the seat is HELD, and return 409. Any transactions still waiting after 2 seconds receive 503 (lock_timeout). The 10 pooled connections process 500 requests sequentially, each transaction taking under 1ms once the lock is granted. Our measured benchmarks with 200 concurrent requests showed zero 503s and zero 500s — 500 users would only slightly increase queue depth.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>A user double-taps "Book" on a slow 3G connection?</div>
+  <div class="whatif-answer">
+    The client generates one Idempotency-Key (UUIDv4) before the first request. Both taps send the same key. The first request to reach the server: (1) locks the user row; (2) finds no existing booking with that key; (3) creates a new booking and commits. The second request: (1) locks the user row (queues behind the first); (2) finds the existing booking with that key; (3) returns it with Idempotency-Replayed: true and status 200. No second booking created. No double charge.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The server crashes (SIGKILL) while a transaction is mid-commit?</div>
+  <div class="whatif-answer">
+    PostgreSQL's WAL (Write-Ahead Log) guarantees atomicity even on sudden crashes. If the transaction had not yet committed (COMMIT instruction not yet executed), PostgreSQL automatically rolls it back during crash recovery when it restarts. The uncommitted changes are discarded — the seat remains in its previous state. If COMMIT had been flushed to WAL but not yet acknowledged to the client, the transaction IS committed and the data is safe — the client just never got the success response (the idempotency key handles this retry case).
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The refund gateway is down for 24 hours after a user is owed money?</div>
+  <div class="whatif-answer">
+    The booking stays in REFUND_PENDING state. The sweeper retries refund calls every 30 seconds. After 5 failed attempts, the sweeper stops retrying (bounded retry — poison pill prevention) and logs: "[Sweeper] Max refund attempts (5) reached. Manual intervention required." An ops engineer is alerted, manually inspects the booking, and issues the refund through the gateway's admin UI when it recovers. The refund_attempts counter documents the history of attempts.
+    
+    At scale: implement exponential backoff (1s, 2s, 4s, 8s, 16s delays) and dead letter queue for bookings exceeding MAX_REFUND_RETRIES, with PagerDuty alert.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>An attacker tries to forge a webhook with a fake payment success?</div>
+  <div class="whatif-answer">
+    Every webhook at <code>POST /api/v1/webhooks/payments</code> must include a valid HMAC-SHA256 signature in the <code>X-Webhook-Signature</code> header. The signature is computed using WEBHOOK_SECRET (a minimum 16-character random string known only to our server and the payment gateway). The server recomputes the expected signature from the raw request body bytes and compares using <code>crypto.timingSafeEqual</code>. Without knowing WEBHOOK_SECRET, an attacker cannot forge a valid signature. Invalid signatures return 401 immediately — the booking status is never touched.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>Someone tries to brute-force a user's password from a university IP?</div>
+  <div class="whatif-answer">
+    Two keys protect: (1) rl:login:fail:email:&lt;email&gt; allows only 10 failed attempts per 15 minutes on the targeted account — the 11th attempt returns 429 for that email, regardless of which IP it came from. (2) rl:login:fail:ip:&lt;ip&gt; allows 60 failed attempts per 15 minutes per IP — a high threshold to avoid blocking 200 legitimate campus users, while still catching large-scale distributed attacks. Both keys use identical 429 responses that reveal nothing about whether the account exists.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>Someone deploys with a default JWT_SECRET like "super_secret" in production?</div>
+  <div class="whatif-answer">
+    The <code>validateProductionSecrets()</code> function runs at server startup when NODE_ENV=production. It checks: (1) JWT_SECRET must be ≥ 32 characters; (2) JWT_SECRET must not contain keywords like "super_secret", "development", "example", "replace_with". If either check fails, the server logs "FATAL: JWT_SECRET contains a development placeholder" and calls <code>process.exit(1)</code>. The container fails to start, the CI/CD pipeline reports the failure, and the broken deployment is blocked before serving a single request with an insecure token.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>Someone runs two seats in a single booking and they're held by different users simultaneously?</div>
+  <div class="whatif-answer">
+    When booking [Seat 10, Seat 20], <code>lockSeatsForHold</code> runs: <code>SELECT ... WHERE seat_id = ANY([10, 20]) AND (status = 'AVAILABLE' OR expired) FOR UPDATE ORDER BY seat_id ASC</code>. If only seat 10 is free and seat 20 is HELD by another user, the query returns only 1 row. The service checks: <code>if (lockedRows.length !== requestedSeats.length)</code> → one or more seats unavailable → ROLLBACK + 409 Conflict. No partial hold is ever created. The user is told "one or more seats are no longer available" and the seat map refreshes.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The same webhook event is delivered 100 times by an aggressive gateway?</div>
+  <div class="whatif-answer">
+    The first delivery: <code>INSERT INTO payment_events (provider_event_id, ...) ON CONFLICT DO NOTHING</code> succeeds (1 row inserted). The booking is finalized — seats marked BOOKED, booking CONFIRMED. All 99 subsequent deliveries: the INSERT returns 0 rows (conflict on unique provider_event_id). The service detects this and returns 200 immediately. The booking's status remains CONFIRMED — no second finalization attempt occurs. Zero race conditions, zero double-processing. The gateway's retry policy is completely harmless.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The seeded showtimes are in the past (someone tests the next day)?</div>
+  <div class="whatif-answer">
+    The seed script creates shows with <code>starts_at = current_date + interval '1 hour'</code>, <code>current_date + interval '1 day'</code>, etc. If testing on a new calendar day, the same-day shows now have <code>starts_at</code> in the past. The booking validation checks for shows in the future (a show in the past cannot be booked). Running <code>npm run seed</code> again truncates and recreates all seed data with new timestamps relative to the current day. This is documented as a known limitation in README.md.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>A new container version rolls out while users are mid-booking?</div>
+  <div class="whatif-answer">
+    Rolling deployments gracefully handle this: (1) Old containers receive SIGTERM → stop accepting new connections → drain existing connections → exit. (2) In-flight transactions on old containers complete normally (PostgreSQL connections stay alive until the connection is closed). (3) New containers start, pass /ready checks, and join the load balancer pool. Because passive expiry is on the database clock, any booking created on the old version is correctly evaluated by the new version without coordination. Advisory locks ensure only one sweeper runs across old+new instances during the overlap.
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>An engineer writes a migration that adds a NOT NULL column without a DEFAULT to a table with existing rows?</div>
+  <div class="whatif-answer">
+    PostgreSQL would throw: "column cannot be null" for existing rows that don't have a value for the new column. The migration SQL errors inside <code>BEGIN ... COMMIT</code>. The runner catches the error, runs <code>ROLLBACK</code>, logs the exact error message, and calls <code>process.exit(1)</code>. The schema is unchanged. The CD pipeline fails and no broken application starts. The fix: add <code>DEFAULT value</code> to the new column in the migration SQL, or use a two-step migration (add nullable → backfill data → add NOT NULL constraint).
+  </div>
+</div>
+
+<div class="whatif-card">
+  <div class="whatif-scenario"><span class="whatif-badge">WHAT IF</span>The rate limiter's InMemoryRateLimitStore runs out of keys (100,000 limit)?</div>
+  <div class="whatif-answer">
+    When <code>store.increment(newKey, windowMs)</code> is called and the Map size equals MAX_KEYS (100,000), the store finds and deletes the oldest key (Map.entries() returns insertion order, so the first entry is the oldest). Then the new key is added. The evicted key's rate limit counter is permanently lost — that IP or user gets a fresh window. This is intentional: an attacker rotating through millions of keys cannot exhaust server memory. Legitimate users are almost never evicted (their keys are regularly refreshed on each request, keeping them recent).
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 16: WHY QUESTIONS
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 16</div>
+  <h1>"Why" Questions — Every Architectural Decision Justified</h1>
+  <div class="ch-desc">The "why" questions reveal your depth of understanding — have a crisp answer for each</div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why PostgreSQL specifically, not MySQL or SQLite?</div>
+  <div class="qa-answer"><p><strong>MySQL:</strong> Advisory locks (GET_LOCK) are session-scoped but have different semantics and cannot distinguish between "lock taken by me" and "lock taken by another" as cleanly. <code>SKIP LOCKED</code> was only added in MySQL 8.0 and has quirks. <code>pg_try_advisory_lock</code> in PostgreSQL is a mature, production-proven primitive for distributed mutual exclusion. <strong>SQLite:</strong> File-level locking — only one write at a time, fundamentally cannot handle concurrent booking workloads.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why raw SQL instead of Prisma or Sequelize?</div>
+  <div class="qa-answer"><p>ORMs abstract away SQL, which is exactly what we cannot afford here. Specific SQL constructs are mission-critical: <code>SELECT ... FOR UPDATE ORDER BY seat_id ASC</code> (deadlock prevention requires exact ordering), <code>FOR UPDATE SKIP LOCKED</code> (sweeper batch processing), <code>SET LOCAL lock_timeout = '2s'</code> (per-transaction timeout hints), <code>ON CONFLICT DO NOTHING</code> (atomic idempotency). Prisma's query builder cannot express all of these. Using raw SQL means we know exactly what locks are being acquired and in what order — there's no surprise behavior from ORM "magic."</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why is the sweeper interval 30 seconds and not 1 second?</div>
+  <div class="qa-answer"><p>The sweeper is for housekeeping, not correctness. Passive expiry handles correctness in real time. Running the sweeper every 1 second would: (1) constantly contend for the advisory lock with high connection overhead; (2) run batched <code>FOR UPDATE SKIP LOCKED</code> queries continuously against the booking table, increasing I/O load; (3) provide no meaningful benefit since passive expiry already handles all user-facing queries. 30 seconds balances housekeeping freshness with minimal database overhead. It's configurable via <code>SWEEPER_INTERVAL_MS</code> for different environments.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why limit refund retries to 5 specifically?</div>
+  <div class="qa-answer"><p>5 retries provides coverage for transient gateway outages (1–4 hours at 30-second intervals = ~2.5 minutes of retries), while preventing infinite loops on permanent failures. After 5 attempts, the probability that the issue is a transient network blip vs. a systematic problem (wrong account, wrong payment reference, gateway account suspended) is overwhelmingly in favor of the systematic problem. Manual investigation is then the right action, not automated retry. The specific number (5) is configurable via code constant <code>MAX_REFUND_RETRIES</code> and was chosen as a reasonable default for production gateway SLAs.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why extend the hold by 3 minutes during Phase A of payment?</div>
+  <div class="qa-answer"><p>Phase A starts the payment process when a user has already held seats (8-minute window). Phase B (the gateway call) can take up to 10 seconds. If the hold expires during Phase B, the seat would become "available" on the next query even though a payment is in progress. By extending hold_expires_at by 3 minutes in Phase A (a short database transaction), we give Phase B sufficient time to complete and Phase C to finalize — without the seat becoming "available" mid-payment and potentially being snatched by another user before Phase C runs.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why is booking_items written inside the hold transaction?</div>
+  <div class="qa-answer"><p>The hold transaction (which creates the booking and locks seats) is the most important moment to record immutable financial data, because: (1) It's atomic — if the hold fails and rolls back, the booking_items rows also roll back; no orphaned ticket records. (2) Price is captured at the moment of booking, not at payment time — if the show's ticket prices change before payment, the user pays the price they saw when they booked (legally required in most jurisdictions). (3) Even if the booking is later cancelled or the show cancelled, booking_items preserve the audit trail of what was originally held.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why use HS256 and not RS256 for JWT?</div>
+  <div class="qa-answer"><p>HS256 uses a single symmetric secret for both signing and verification. RS256 uses a private key to sign and a public key to verify — necessary when multiple independent services need to verify tokens without access to the signing secret (microservices with separate trust domains). ParallelLock is a monolith — only one application verifies tokens, so there's no need to distribute a public key. HS256 is simpler, faster, and equally secure for this architecture. If the system were decomposed into microservices with independent auth boundaries, RS256 would become appropriate.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why is Vitest used instead of Jest?</div>
+  <div class="qa-answer"><p>The project uses ES Modules (<code>"type": "module"</code> in package.json). Jest requires either a Babel transform or experimental VM API to handle ESM imports — adding configuration complexity and potential compatibility edge cases. Vitest is ESM-first by design: no configuration needed for ESM. It also shares Vite's config and plugin system (since the frontend uses Vite), runs tests in parallel by default, and has a Jest-compatible API (same describe/it/expect syntax) so the testing patterns are identical. The test execution is also measurably faster.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why is there no global per-IP rate limit on all endpoints?</div>
+  <div class="qa-answer"><p>A global per-IP rate limit would throttle university campuses, corporate offices, and mobile carrier NATs where thousands of users share a single public IP. This is antithetical to the goal of handling high-demand ticket releases for large groups. Instead, rate limits are applied selectively: holds are keyed by authenticated user ID (bypasses the NAT problem entirely), login failures use dual-key strategy (email-keyed is the main defense, IP-keyed is a high-threshold supplementary defense), registrations use IP-keyed (acceptable since registration is a one-time action per person, not a mass concurrent activity). Read endpoints (seat maps, catalogs) have no rate limit at all.</p></div>
+</div>
+
+<div class="qa-card medium">
+  <div class="qa-question"><span class="q-badge">WHY</span>Why does the Dockerfile use a non-root user?</div>
+  <div class="qa-answer"><p>Running containers as root is a security antipattern. If an attacker exploits a vulnerability in the Node.js application or one of its dependencies (prototype pollution, path traversal, etc.), running as root gives them full access to the container's filesystem, the ability to install packages, modify system files, and potentially escape the container to the host. Running as <code>USER node</code> (UID 1000) restricts the attack surface: the process can only write to files in <code>/app</code> (its workdir) and cannot access or modify system directories. This is the Docker security principle of least privilege.</p></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 17: THE 3 HARDEST VIVA QUESTIONS
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 17</div>
+  <h1>The 3 Hardest Viva Questions — Airtight Defenses</h1>
+  <div class="ch-desc">Memorize these three answers. They are the final boss questions in any senior SDE interview.</div>
+</div>
+
+<div class="viva-box">
+  <div class="viva-question">🧠 VIVA QUESTION 1 — Lock Contention & Pool Starvation<br><small style="font-weight:400;font-size:10pt;opacity:0.9;">"When 10,000 users contend for 1 popular seat at the exact same millisecond, won't SELECT ... FOR UPDATE queue all 10,000 transactions, exhaust your 10-connection pool, and cause total system starvation for unrelated shows?"</small></div>
+  <div class="viva-defense">
+    <p><strong>Answer — Three-Layer Defense Architecture:</strong></p>
+    <p><strong>1. Fail-Fast Lock Timeout Circuit Breaker:</strong><br>
+    Every hold transaction sets <code>SET LOCAL lock_timeout = '2s'</code>. Transaction #1 acquires the seat row lock in microseconds and marks it HELD. Transaction #2 acquires the lock next (after #1 commits), reads the HELD status, and immediately returns 0 rows → ROLLBACK + 409 in under 1 millisecond. Each subsequent transaction does the same. The lock is never held for long — it's granted and released at microsecond speed. Any transaction that cannot acquire the lock within 2 seconds is killed by PostgreSQL (error 55P03) and returns 503. The connection is freed immediately.</p>
+    <p><strong>2. Connection Pool Protection:</strong><br>
+    With 10 pooled connections: connections process transactions sequentially at under-1ms each. Even under 10,000 concurrent requests, the pool queue drains rapidly. In our measured benchmarks with 200 concurrent requests on 1 seat (20x the pool size), we observed <strong>zero 503s and zero 500s</strong> across 12,000 total stress requests.</p>
+    <p><strong>3. Rate Limiter as First Gate:</strong><br>
+    Authenticated hold requests are limited to 10/minute per user. Bot scripts get 429 at the HTTP layer before consuming any database connection. Legitimate users on the same IP never block each other (keyed by user.id, not IP).</p>
+    <p><strong>Bottom line:</strong> Pool starvation is theoretically possible only if lock hold time approaches 2 seconds AND arrival rate exceeds pool capacity. In practice, the lock hold time is under 50ms per winning transaction and under 1ms for all losers — the pool cycles through 10,000 requests in well under 2 seconds total.</p>
+  </div>
+</div>
+
+<div class="viva-box">
+  <div class="viva-question">🧠 VIVA QUESTION 2 — Distributed Deployments & Double-Sweep Hazard<br><small style="font-weight:400;font-size:10pt;opacity:0.9;">"If you deploy 5 container instances behind a load balancer during a zero-downtime rolling update, what stops all 5 from running the background sweeper at the same second and double-processing expired bookings?"</small></div>
+  <div class="viva-defense">
+    <p><strong>Answer — PostgreSQL Session-Level Advisory Locks:</strong></p>
+    <p>Unlike transaction locks that protect table rows, advisory locks are application-defined mutual exclusion locks maintained in <strong>PostgreSQL shared memory</strong>. No Redis, no Consul, no extra infrastructure.</p>
+    <p><strong>How it works with 5 concurrent instances:</strong></p>
+    <p><strong>1. Dedicated Client Connection:</strong> Each instance's sweeper checks out a dedicated PostgreSQL client (<code>await pool.connect()</code>) exclusively for the sweep duration — not a pooled query that returns the connection after the query.</p>
+    <p><strong>2. Non-Blocking Try-Lock:</strong> When all 5 sweepers fire simultaneously, each calls <code>SELECT pg_try_advisory_lock(987654321)</code>. PostgreSQL grants <code>true</code> to exactly ONE instance. The other four get <code>false</code> immediately (no queuing, no blocking) and return without doing any work.</p>
+    <p><strong>3. Safe Release:</strong> The winning instance completes the full sweep cycle, then executes <code>SELECT pg_advisory_unlock(987654321)</code> in a <code>finally</code> block before releasing the client back to the pool. If the winning container crashes mid-sweep, PostgreSQL automatically releases the advisory lock when the TCP connection drops — the next sweep cycle, another instance can take over.</p>
+    <p><strong>Correctness is maintained regardless:</strong> Even if the sweeper completely fails to run, passive expiry (<code>hold_expires_at &lt;= now()</code>) ensures all user-facing queries treat expired holds correctly. The sweeper is a housekeeping optimization, not a correctness requirement.</p>
+  </div>
+</div>
+
+<div class="viva-box">
+  <div class="viva-question">🧠 VIVA QUESTION 3 — The Late-Payment Race & Refund Atomicity<br><small style="font-weight:400;font-size:10pt;opacity:0.9;">"A user's 8-minute hold expires while they're entering their OTP. Another user immediately claims and books that seat. Two seconds later, the payment gateway webhook says the first user's payment succeeded. How do you prevent double-booking without dropping money on the floor?"</small></div>
+  <div class="viva-defense">
+    <p><strong>Answer — Three-Phase Payment with Atomic Seat Re-Verification:</strong></p>
+    <p><strong>The Core Problem:</strong> The payment gateway is slow (1–10 seconds) and cannot run inside a database transaction without holding locks indefinitely. We must call it outside the transaction — which creates the race window.</p>
+    <p><strong>Phase C Atomic Re-Verification:</strong> When Alice's webhook arrives, <code>finalizePayment()</code> executes inside an isolated transaction. It acquires these locks in this order: booking row → payment row → show_seat rows (<code>FOR UPDATE ORDER BY seat_id ASC</code>).</p>
+    <p>Then it verifies: <code>WHERE booking_id = alice_booking_id AND status = 'HELD'</code>. Because Bob took Alice's seat, this condition returns 0 rows. The seat is BOOKED under Bob's booking_id, not Alice's.</p>
+    <p><strong>Safe Fallback — The Refund Path:</strong></p>
+    <ol>
+      <li>Phase C detects 0 matching seats → cannot confirm booking</li>
+      <li>Transition: PAYMENT_PENDING → REFUND_PENDING (committed in the same transaction)</li>
+      <li><strong>Outside the transaction:</strong> call payment gateway to issue a full refund to Alice</li>
+      <li>If refund succeeds: REFUND_PENDING → REFUNDED (committed in second transaction)</li>
+      <li>If gateway is busy: sweeper retries (bounded at 5 attempts, then manual intervention alert)</li>
+    </ol>
+    <p><strong>Result:</strong> Zero double-booking (Bob keeps his seat), zero dropped money (Alice's refund is automatic), zero 500 errors (all error paths are explicitly handled and committed transactionally).</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CHAPTER 18: QUICK REFERENCE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div class="chapter-header">
+  <div class="ch-num">Chapter 18</div>
+  <h1>Quick Reference — APIs, Env Vars &amp; Commands</h1>
+  <div class="ch-desc">Everything in one place for quick lookup during an interview</div>
+</div>
+
+<h2>API Endpoints</h2>
+<table class="endpoint-table">
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Purpose</th></tr>
+  <tr><td><span class="method get">GET</span></td><td>/health</td><td>None</td><td>Liveness probe — returns uptime + timestamp</td></tr>
+  <tr><td><span class="method get">GET</span></td><td>/ready</td><td>None</td><td>Readiness probe — queries PostgreSQL SELECT 1</td></tr>
+  <tr><td><span class="method post">POST</span></td><td>/api/v1/auth/register</td><td>None</td><td>Register user (rate: 30/10min per IP)</td></tr>
+  <tr><td><span class="method post">POST</span></td><td>/api/v1/auth/login</td><td>None</td><td>Login → JWT (rate: 10 fails/15min per email)</td></tr>
+  <tr><td><span class="method get">GET</span></td><td>/api/v1/shows</td><td>Optional</td><td>List upcoming shows</td></tr>
+  <tr><td><span class="method get">GET</span></td><td>/api/v1/shows/:id/seats</td><td>Optional</td><td>Seat map with real-time availability</td></tr>
+  <tr><td><span class="method post">POST</span></td><td>/api/v1/shows/:id/holds</td><td>Required</td><td>Hold seats (rate: 10/min per userId, with Idempotency-Key)</td></tr>
+  <tr><td><span class="method post">POST</span></td><td>/api/v1/bookings/:id/pay</td><td>Required</td><td>Initiate 3-phase payment</td></tr>
+  <tr><td><span class="method get">GET</span></td><td>/api/v1/bookings/:id</td><td>Required</td><td>Get booking status</td></tr>
+  <tr><td><span class="method get">GET</span></td><td>/api/v1/bookings/my</td><td>Required</td><td>All bookings for logged-in user</td></tr>
+  <tr><td><span class="method post">POST</span></td><td>/api/v1/webhooks/payments</td><td>HMAC-SHA256</td><td>Payment gateway webhook (raw body, timingSafeEqual)</td></tr>
+</table>
+
+<h2>Key Environment Variables</h2>
+<table>
+  <tr><th>Variable</th><th>Default</th><th>Production Required</th><th>Purpose</th></tr>
+  <tr><td><code>DATABASE_URL</code></td><td>—</td><td>✅ Yes</td><td>Primary PostgreSQL connection string</td></tr>
+  <tr><td><code>JWT_SECRET</code></td><td>—</td><td>✅ Yes (≥32 chars)</td><td>Token signing secret — boot-rejects dev placeholders</td></tr>
+  <tr><td><code>WEBHOOK_SECRET</code></td><td>—</td><td>✅ Yes (≥16 chars)</td><td>HMAC-SHA256 webhook verification key</td></tr>
+  <tr><td><code>CLIENT_ORIGIN</code></td><td>http://localhost:5173</td><td>✅ Yes</td><td>CORS-whitelisted frontend origin</td></tr>
+  <tr><td><code>HOLD_SECONDS</code></td><td>480</td><td>No</td><td>Seat reservation hold window (default 8 minutes)</td></tr>
+  <tr><td><code>NODE_ENV</code></td><td>development</td><td>✅ Yes (production)</td><td>Enables production secret guard + sweeper startup</td></tr>
+  <tr><td><code>TRUST_PROXY</code></td><td>(unset)</td><td>✅ If behind Render/Cloudflare</td><td>Reverse proxy hop count for real IP detection</td></tr>
+  <tr><td><code>ENABLE_RATE_LIMITER</code></td><td>true (non-test)</td><td>No (default ON)</td><td>Set false for benchmarks and tests</td></tr>
+  <tr><td><code>MOCK_PAYMENT_MODE</code></td><td>sync</td><td>No</td><td>sync (instant) or async (webhook-driven) mock</td></tr>
+  <tr><td><code>SWEEPER_INTERVAL_MS</code></td><td>30000</td><td>No</td><td>Housekeeping interval (30 seconds default)</td></tr>
+  <tr><td><code>RATE_LIMIT_HOLDS_PER_MIN</code></td><td>10</td><td>No</td><td>Max holds per user per minute</td></tr>
+</table>
+
+<h2>NPM Scripts</h2>
+<table>
+  <tr><th>Command</th><th>What It Does</th></tr>
+  <tr><td><code>npm run dev</code></td><td>Start dev server with auto-reload (NODE_ENV=development)</td></tr>
+  <tr><td><code>npm test</code></td><td>Run all 78 Vitest integration tests</td></tr>
+  <tr><td><code>npm run test:concurrency</code></td><td>Run only the 100/500-user concurrency stress tests</td></tr>
+  <tr><td><code>npm run check:invariants</code></td><td>Query database for data integrity violations (expect 0)</td></tr>
+  <tr><td><code>npm run bench</code></td><td>Run all 3 benchmark suites (a, b, c) — 3 runs each with median</td></tr>
+  <tr><td><code>npm run migrate</code></td><td>Apply pending migrations in development (via node --env-file)</td></tr>
+  <tr><td><code>npm run db:migrate</code></td><td>Apply pending migrations in production/CI (without --env-file)</td></tr>
+  <tr><td><code>npm run seed</code></td><td>Seed theaters, movies, shows, and test users (run daily)</td></tr>
+  <tr><td><code>npm run demo:parallel</code></td><td>Fire 20 concurrent holds for 1 seat — demonstrates locking live</td></tr>
+  <tr><td><code>npm run demo:unsafe</code></td><td>Simulate double-booking without locks — shows the bug being solved</td></tr>
+</table>
+
+<h2>Key Files Reference</h2>
+<table>
+  <tr><th>File</th><th>Purpose</th></tr>
+  <tr><td><code>server/src/modules/booking/showSeat.repo.js</code></td><td>lockSeatsForHold() — the core SELECT FOR UPDATE ORDER BY seat_id ASC</td></tr>
+  <tr><td><code>server/src/modules/booking/booking.service.js</code></td><td>createHold(), three-phase payment orchestration</td></tr>
+  <tr><td><code>server/src/modules/payment/payment.service.js</code></td><td>finalizePayment(), HMAC verification, refund logic</td></tr>
+  <tr><td><code>server/src/common/bookingStateMachine.js</code></td><td>assertTransition() — legal state transition graph</td></tr>
+  <tr><td><code>server/src/sweeper/sweeper.js</code></td><td>Advisory-locked background sweeper — pg_try_advisory_lock</td></tr>
+  <tr><td><code>server/src/common/middleware/rateLimiter.js</code></td><td>hold/login/register rate limiters — mounted in routes</td></tr>
+  <tr><td><code>server/src/common/middleware/rateLimitStore.js</code></td><td>InMemoryRateLimitStore — injectable clock, LRU eviction</td></tr>
+  <tr><td><code>server/src/config/env.js</code></td><td>validateProductionSecrets() — boot-time secret guard</td></tr>
+  <tr><td><code>server/src/db/migrate.js</code></td><td>Idempotent, transactional migration runner</td></tr>
+  <tr><td><code>server/scripts/checkInvariants.js</code></td><td>3 database consistency invariant queries</td></tr>
+  <tr><td><code>server/scripts/bench/runAll.js</code></td><td>Master benchmark orchestrator — 3 suites × 3 runs</td></tr>
+  <tr><td><code>.github/workflows/ci.yml</code></td><td>GitHub Actions CI — postgres service, migrate, test, build</td></tr>
+  <tr><td><code>docs/BENCHMARKS.md</code></td><td>Real measured benchmark results with hardware specs</td></tr>
+  <tr><td><code>docs/DEPLOY.md</code></td><td>Full production deployment guide (Render, env vars, probes)</td></tr>
+</table>
+
+<h2>The 10-Line Executive Summary</h2>
+<div class="info-box tip">
+  <div class="info-box-title">📋 Memorize This — Your Elevator Pitch</div>
+  <ol>
+    <li>ParallelLock is an ACID-compliant movie ticket reservation engine built with Node 20, Express, raw SQL PostgreSQL, and React.</li>
+    <li>Solves the check-then-act race condition and double-booking anomalies under high concurrency without Redis or external distributed lock managers.</li>
+    <li>Uses deterministic PostgreSQL row-level locks (SELECT ... FOR UPDATE) on physical seat inventory to guarantee single-winner holds.</li>
+    <li>Eliminates distributed deadlocks by sorting seat IDs in strictly ascending numerical order (ORDER BY seat_id ASC) prior to acquisition.</li>
+    <li>Prevents connection pool saturation with fail-fast query timeouts (lock_timeout = 2s, statement_timeout = 5s).</li>
+    <li>Reclaims expired reservations passively against PostgreSQL's clock (now()), enabling zero-downtime rolling deploys without cron dependencies.</li>
+    <li>Decouples payment network calls into a three-phase state machine (CREATED → PAYMENT_PENDING → CONFIRMED / REFUND_PENDING → REFUNDED).</li>
+    <li>Deduplicates webhook reconciliation idempotently in a single transaction with constant-time HMAC-SHA256 signature verification.</li>
+    <li>Implements sliding-window rate limiting keyed by authenticated user ID (never per-IP on holds) so campus NAT networks never throttle.</li>
+    <li>Verified by 78 automated integration and stress tests (up to 500 concurrent users) with 0 invariant violations and real hardware benchmarks.</li>
+  </ol>
+</div>
+
+<div class="footer-note">
+  ParallelLock — SDE Interview Guide | Author: Sarvan Singh | Node 20 · Express · PostgreSQL 16 · React · Vitest | 78 Tests Passing | 0 Double-Bookings
+</div>
+
+</body>
+</html>
