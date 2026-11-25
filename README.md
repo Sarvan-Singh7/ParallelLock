@@ -2,7 +2,7 @@
 
 [![CI Pipeline](https://github.com/Sarvan-Singh7/ParallelLock/actions/workflows/ci.yml/badge.svg)](https://github.com/Sarvan-Singh7/ParallelLock/actions/workflows/ci.yml)
 
-A production-grade, high-concurrency movie ticket booking engine built with **Node.js**, **Express**, **PostgreSQL**, and **React**.
+A high-concurrency movie ticket booking engine built with **Node.js**, **Express**, **PostgreSQL**, and **React**, designed for rolling deploys.
 
 ParallelLock demonstrates how to solve the classic **"check-then-act" race condition**, double-booking anomalies, and distributed deadlocks in high-demand seat reservation systems using **PostgreSQL row-level locks** (`SELECT ... FOR UPDATE`) and transactional isolation—without external cache layers or distributed lock managers.
 
@@ -28,18 +28,23 @@ When thousands of users contend for the exact same high-demand seats at the exac
 | **Fail-Fast Lock Timeouts** | **Built** | `lock_timeout = 2s`, `statement_timeout = 5s` per transaction |
 | **Passive Expiry on DB Clock** | **Built** | Expiry evaluated against `now()` in SQL queries |
 | **Auth & Security** | **Built** | Argon2id password hashing, JWT with HS256, CORS whitelist, Helmet headers |
-| **Automated Concurrency Test Suite** | **Built** | 100 & 500 parallel user contention tests + 300 deadlock reversal tests |
+| **Automated Concurrency Test Suite** | **Built** | 100 & 500 parallel user contention tests + 300 deadlock reversal tests (78 passing tests across 13 files) |
 | **React Interactive Booking Client** | **Built** | Movie catalog, auditorium layout, seat selection, 8-min countdown, checkout & tickets |
 | **Idempotency Keys (`Idempotency-Key`)** | **Built** | Prevents duplicate holds on retry; returns `200` with `Idempotency-Replayed: true` |
 | **Payment State Machine (`PAYMENT_PENDING`)** | **Built** | Two-phase commit with `payment_started_at`, 2-min lazy crash recovery, hold extension, and duplicate charge gating |
-| **Payments, Webhooks & Refunds (P2-M3)** | **Built** | Three-phase payment (Phase A tx → Phase B external → Phase C tx), `payments` + `payment_events` tables, HMAC-SHA256 webhook verification, deduplication-in-one-tx, two-phase refund, `retryRefund`, `MOCK_PAYMENT_MODE=sync\|async`, `REFUND_PENDING`/`REFUNDED` states |
-| **State Machine, Sweeper & Invariants (P2-M4)** | **Built** | Explicit transition graph `assertTransition`, `booking_items` line-item ledger, background advisory-locked sweeper (`pg_try_advisory_lock` with `SKIP LOCKED`), automated invariant verification (`npm run check:invariants`) |
-| **Verification & Fault Tolerance (V0)** | **Built** | Dedicated client advisory lock lifecycle (zero pool lock leakage), process shutdown cleanup (`SIGTERM`/`SIGINT`), bounded refund retries (`refund_attempts` max 5) |
+| **Payments, Signed Webhooks & Refunds** | **Built** | Three-phase payment (Phase A tx → Phase B external → Phase C tx), `payments` + `payment_events` tables, HMAC-SHA256 constant-time verification, deduplication-in-one-tx, two-phase refund, `retryRefund`, `MOCK_PAYMENT_MODE=sync\|async`, `REFUND_PENDING`/`REFUNDED` states |
+| **Advisory-Locked Sweeper** | **Built** | Dedicated-client session advisory lock (`pg_try_advisory_lock` with `SKIP LOCKED`), 30s interval, zero pool leakage, process shutdown cleanup (`SIGTERM`/`SIGINT`), bounded refund retries (`refund_attempts` max 5) |
+| **Automated Database Invariants** | **Built** | Automated consistency queries (`npm run check:invariants`) asserting 0 invariant violations across all tables |
+| **Sliding-Window Rate Limiting** | **Built** | In-memory `RateLimitStore` (pluggable Redis interface), LRU eviction (100k keys), injectable clock, hold limiter (10/min per user id), login brute-force barrier (10 fails/15min per email, 60 fails/15min per IP, successful login resets email, byte-identical 429), register limiter (30/10min per IP), trusted proxy hop-count support |
 | **Measured Benchmarks (L1)** | **Built** | Autocannon read/write benchmark suite (`npm run bench`): 30s read tests @ 50 & 200 conns, 200-user single-seat contention (20 rounds, 3 runs), 200-seat concurrent holds, detailed in `docs/BENCHMARKS.md` |
-| **Sliding-Window Rate Limiting (R1)** | **Built** | In-memory `RateLimitStore` (pluggable Redis interface), LRU eviction (100k keys), injectable clock, hold limiter (10/min per user id), login brute-force barrier (10 fails/15min per email, 60 fails/15min per IP, successful login resets email, byte-identical 429), register limiter (30/10min per IP), trusted proxy hop-count support |
-| **Deployment Readiness (D1)** | **Built** | `GET /health` (process up) & `GET /ready` (DB query check), multi-stage Dockerfile (server & client with Nginx SPA rewrites), production secret fast-fail guard, safe deploy migrations (`npm run db:migrate`), GitHub Actions CI pipeline with Postgres container, deployment guide (`docs/DEPLOY.md`) |
-| **Admin Catalog Management** | *Planned (Phase 4)* | Admin UI and endpoints for creating movies and scheduling shows |
-| **Redis / Distributed Cache** | *Future* | Read-through caching for movie catalog and read replicas |
+| **Health & Readiness Probes** | **Built** | `GET /health` (process liveness: uptime + timestamp) & `GET /ready` (readiness: DB `SELECT 1` query check) |
+| **Multi-Stage Docker Setup** | **Built** | Multi-stage Dockerfile for server (unprivileged `node` user, healthcheck) and client with Nginx SPA rewrites |
+| **CI Pipeline** | **Built** | GitHub Actions workflow with real PostgreSQL service container, migrations, full 78 tests, invariant checks, client build |
+| **Redis Cache & Gate** | *Planned* | Read-through caching for movie catalog and Redis distributed rate limiter / token bucket gate |
+| **Real Payment Provider** | *Planned* | Production payment provider adapter (Stripe / Razorpay) in test mode replacing mock payment strategies |
+| **SSE Live Seat Updates** | *Planned* | Server-Sent Events (SSE) pushing real-time seat availability deltas to active auditorium maps |
+| **Admin Catalog Management** | *Planned* | Admin dashboard and endpoints for theater management, movie cataloging, and showtime scheduling |
+| **Production Cloud Deployment** | *Planned* | Live deployment on cloud infrastructure (Render / AWS ECS) with managed PostgreSQL |
 
 ---
 
@@ -144,7 +149,7 @@ npm run db:migrate
 ```
 
 See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for full measured hardware specs, throughput tables, and contention percentiles.
-See [docs/DEPLOY.md](docs/DEPLOY.md) for zero-downtime rolling deployment procedures, health probes, and production configuration.
+See [docs/DEPLOY.md](docs/DEPLOY.md) for rolling deployment procedures designed for rolling deploys, health probes, and production configuration.
 
 ---
 

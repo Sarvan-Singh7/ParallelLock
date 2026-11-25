@@ -43,9 +43,9 @@ npm run db:migrate
 
 ---
 
-## 3. Zero-Downtime Rolling Deployments
+## 3. Rolling Deployments (Designed for Rolling Deploys)
 
-During a rolling deployment, multiple application container instances running old and new versions may execute concurrently.
+During a rolling deployment, multiple application container instances running old and new versions may execute concurrently without downtime. ParallelLock is designed for rolling deploys using database-level coordination.
 
 ### A. Passive Expiry Works Without Coordination
 - In naive booking engines, background workers must poll every second to release expired holds.
